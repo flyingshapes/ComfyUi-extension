@@ -57,6 +57,10 @@ class FsInputNode:
             print(err + "fs_data is None.")
             return self.process_value(stored_value)
 
+        use_fs_input = fs_data.get("inputFromFs", None)
+        if not use_fs_input:
+            return self.process_value(stored_value)
+
         user_id: str | None = fs_data.get("userId", None)
         timeout = fs_data.get("timeout", None)
         if user_id is None or len(user_id) == 0:

@@ -285,6 +285,7 @@ const initialState = {
     timeout: 10,
     userId: '',
     askName: true,
+    inputFromFs: false,
     lastName: 'ComfyUi web'
 }
 const state = storageProxy(storageKey, {
@@ -345,6 +346,7 @@ class FsDialog extends ComfyDialog {
         const user_id = createInput("userId", "User Id")
         const timeout = createInput("timeout", "Timeout (s)", "number")
         const askName = createInput("askName", "Ask for name?", "checkbox")
+        const inputFromFs = createInput("inputFromFs", "Input from FS?", "checkbox")
 
 
         return [
@@ -352,6 +354,7 @@ class FsDialog extends ComfyDialog {
             ...user_id,
             ...timeout,
             ...askName,
+            ...inputFromFs,
         ]
     }
 }

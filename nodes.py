@@ -144,7 +144,7 @@ class InputScreenShot(FsInputNode):
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("Screenshot (IMAGE)",)
     CATEGORY = "flyingshapes/screenshot"
-    FS_CLASS_LABEL = "Screenshot"
+    FS_CLASS_LABEL = "Image"
 
     def process_value(self, value):
         imgdata = base64.b64decode(value)

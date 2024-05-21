@@ -11,35 +11,39 @@ routes: web.RouteTableDef = PromptServer.instance.routes
 @routes.post("/flyingshapes/push-workflow")
 async def push_workflow(request: Request):
     json_data = await request.json()
-    workflow = json_data.get("workflow", None)
-    user_id = json_data.get("userId", None)
     name = json_data.get("name", None)
+    workflow = json_data.get("workflow", None)
     if workflow is None:
         return web.json_response({"error": "missing workflow"}, status=400)
-    if user_id is None:
-        return web.json_response({"error": "missing UserId"}, status=400)
 
     server: PromptServer = PromptServer.instance
     sid: str = json_data.get("clientId", server.client_id)
     is_fs = sid is None or sid.startswith(common.fs_sid_prefix)
 
     if is_fs:
+        # pass
         return web.json_response({"error": "workflow supposed to be sent from web ui."}, status=400)
+    else:
+        user_id = json_data.get("userId", None)
+        if user_id is None:
+            return web.json_response({"error": "missing UserId"}, status=400)
 
-    sid = common.fs_sid_prefix + user_id
-    sock: WebSocketResponse | None = server.sockets.get(sid, None)
-    if sock is None:
-        return web.json_response({"error": "no socket connection for '" + sid}, status=400)
+        sid = common.fs_sid_prefix + user_id
+
+        sock: WebSocketResponse | None = server.sockets.get(sid, None)
+        if sock is None:
+            return web.json_response({"error": "no socket connection for '" + sid}, status=400)
 
     valid = validate_prompt(workflow)
+    print("sending workflow: "+("FS ===> webui" if is_fs else "webui ===> FS"))
 
-    if valid[0]:
-        response = {"message": "sending workflow to flyingshapes"}
-        server.send_sync("flyingshapes_workflow", {"workflow": workflow, "name": name}, sid)
-        return web.json_response(response)
-    else:
+    if not is_fs and not valid[0]:
         print("invalid prompt: {}".format(valid[1]))
         return web.json_response({"error": valid[1], "node_errors": valid[3]}, status=400)
+
+    response = {"message": "sending workflow to flyingshapes"}
+    server.send_sync("flyingshapes_workflow", {"workflow": workflow, "name": name}, sid)
+    return web.json_response(response)
 
 
 @routes.post("/flyingshapes/extra-data")

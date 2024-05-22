@@ -88,3 +88,18 @@ async def provide_input_value(request: Request):
 
     response = {"message": "provided node input data from FS to comfyUi", "consumed": was_handled}
     return web.json_response(response)
+
+
+@routes.post("/flyingshapes/fs-connection")
+async def push_workflow(request: Request):
+    json_data = await request.json()
+    user_id = json_data.get("userId", None)
+    if user_id is None:
+        return web.json_response({"error": "missing UserId"}, status=400)
+
+    sid = common.fs_sid_prefix + user_id
+    server: PromptServer = PromptServer.instance
+
+    sock: WebSocketResponse | None = server.sockets.get(sid, None)
+
+    return web.json_response({"connected": False if sock is None else True})

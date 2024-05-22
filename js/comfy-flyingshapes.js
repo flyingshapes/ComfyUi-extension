@@ -34,9 +34,28 @@ const style = `
     grid-column: span 2;
     /*display: none;*/
 }
+.connected-display {
+    display: inline-block;
+    margin-left: 8px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #4e4e4e;
+}
+
+.connected-display.valid:not(.connected) {
+    background-color: var(--error-text);
+}
+.connected-display.valid.connected {
+    background-color: var(--success-text, #0d0);
+}
 `
 
-export var fs_dialog_instance = null;
+let fs_dialog_instance = null;
+export function getDialogInstance() {
+    if (!fs_dialog_instance) fs_dialog_instance = new FsDialog()
+    return fs_dialog_instance
+}
 const storageKey = 'flyingshapes'
 const uuidv4re = /^[0-9A-F]{8}-[0-9A-F]{4}-[4][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i
 const validation = {
@@ -55,11 +74,17 @@ const addValidation = (key, h) => {
     handlers.push(h)
 }
 
-var fsButtons = {
+let fsButtons = {
     settings: undefined,
     sendWorkflow: undefined,
 };
 
+let connectedInterval = undefined
+/**
+ *
+ * @type {undefined | HTMLElement}
+ */
+let connectedDisplayEl = undefined
 
 const getExtraData = () => {
     const {lspReset, userId, ...s} = JSON.parse(ls.getItem(storageKey)) || {}
@@ -95,7 +120,6 @@ app.registerExtension({
     },
     async setup() {
         //await new Promise(resolve => setTimeout(resolve, 50))
-
         const menu = document.querySelector(".comfy-menu");
         //const queueButton = document.querySelector("#queue-button");
         //async queuePrompt(number, batchCount = 1) {
@@ -108,7 +132,10 @@ app.registerExtension({
         }
 
         let order = 50
-        const items = []
+        connectedDisplayEl = $el("span", {
+            className: "connected-display",
+        })
+
         const makeEl = (...args) => {
             const elem = $el(...args)
             elem.style.order = order++
@@ -126,13 +153,12 @@ app.registerExtension({
                 order: order++,
                 margin: "10px 0",
             },
-        }, ["Flyingshapes"])
+        }, ["Flyingshapes", connectedDisplayEl])
 
         fsButtons.settings = makeEl("button", {
             id: "fs-settings-button",
             onclick: () => {
-                if (!fs_dialog_instance) fs_dialog_instance = new FsDialog()
-                fs_dialog_instance.show()
+                getDialogInstance().show()
                 triggerValidation()
             }
         }, [
@@ -145,9 +171,22 @@ app.registerExtension({
         }, [
             "send workflow"
         ])
+
+        clearInterval(connectedInterval)
+        triggerValidation()
+        connectedInterval = setInterval(getFsConnection, 2500)
+        addValidation('userId', getFsConnection)
+        //getFsConnection
     },
     async provideExtraData() {
         return {fs_data: getExtraData()}
+    },
+    nodeCreated(node, app) {
+        if (node.comfyClass === 'FLYINGSHAPES_Input_Screen_Shot') {
+            const w = node.widgets.find(obj => obj.name === 'stored_value');
+            console.log("Created FS Screenshot node!!", w)
+            //node.widgets.length = 0
+        }
     }
 })
 
@@ -363,9 +402,11 @@ class FsDialog extends ComfyDialog {
  *
  * @param {string} endPoint
  * @param {object} data
+ * @param catchErr if true, exceptions are caught, otherwise rethrown
+ * @param showError if true and the request returns with an error, the error is shown via ui dialog
  * @returns {Promise<void>}
  */
-async function postRequest(endPoint, data, catchErr = false) {
+async function postRequest(endPoint, data, catchErr = false, showError = true) {
     const clientId = api.initialClientId ?? api.clientId
     try {
         const response = await api.fetchApi(`/flyingshapes/${endPoint}`, {
@@ -375,7 +416,7 @@ async function postRequest(endPoint, data, catchErr = false) {
         if (!response.ok) {
             const data = await response.json()
             console.error(data)
-            app.ui.dialog.show(data.error ?? "Unknown Error.");
+            if (showError)  app.ui.dialog.show(data.error ?? "Unknown Error.");
             throw data
         } else try {
             return await response.json()
@@ -404,4 +445,26 @@ async function pushWorkflowToFs() {
         if (name) data.name = name
     }
     await postRequest("push-workflow", data)
+}
+
+async function getFsConnection() {
+    const {userId} = state
+    const elem = connectedDisplayEl
+    if (!elem) return
+    const uidValid = validState['userId'] === true
+    if (uidValid) {
+        elem.classList.add('valid')
+    } else {
+        elem.classList.remove('valid')
+    }
+    try {
+        let result = await postRequest("fs-connection", {userId}, undefined, false)
+        if (result.connected) {
+            elem.classList.add('connected')
+        } else {
+            elem.classList.remove('connected')
+        }
+    } catch (e) {
+        elem.classList.remove('connected')
+    }
 }

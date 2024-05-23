@@ -56,6 +56,7 @@ export function getDialogInstance() {
     if (!fs_dialog_instance) fs_dialog_instance = new FsDialog()
     return fs_dialog_instance
 }
+const emptyImage = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
 const storageKey = 'flyingshapes'
 const uuidv4re = /^[0-9A-F]{8}-[0-9A-F]{4}-[4][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i
 const validation = {
@@ -184,8 +185,87 @@ app.registerExtension({
     nodeCreated(node, app) {
         if (node.comfyClass === 'FLYINGSHAPES_Input_Screen_Shot') {
             const w = node.widgets.find(obj => obj.name === 'stored_value');
-            console.log("Created FS Screenshot node!!", w)
             //node.widgets.length = 0
+            Object.defineProperty(w, 'value', {
+                set(v) {
+                    if(v != '[IMAGE DATA]')
+                        w._value = v;
+                    app.graph.setDirtyCanvas(true);
+                },
+                get() {
+                    return w._value
+                    const stackTrace = new Error().stack;
+                    if(!stackTrace.includes('draw') && !stackTrace.includes('graphToPrompt') && stackTrace.includes('app.js')) {
+                        return "[IMAGE DATA]";
+                    }
+                    else {
+                        return w._value;
+                    }
+                }
+            });
+            console.log(node.widgets)
+            const set_img_act = (v) => {
+                node._img = v;
+                var canvas = document.createElement('canvas');
+                canvas.width = v[0].width;
+                canvas.height = v[0].height;
+
+                var context = canvas.getContext('2d');
+                try {
+                    context.drawImage(v[0], 0, 0, v[0].width, v[0].height);
+                } catch (e) {
+                    console.error("drawimage failed")
+                    return;
+                }
+
+                var base64Image = canvas.toDataURL('image/png')
+                w.value = base64Image.split(',')[1]
+            };
+
+            Object.defineProperty(node, 'imgs', {
+                set(v) {
+                    if (!v[0].complete) {
+                        let orig_onload = v[0].onload;
+                        v[0].onload = function(v2) {
+                            if(orig_onload)
+                                orig_onload();
+                            set_img_act(v);
+                        };
+                    }
+                    else {
+                        set_img_act(v);
+                    }
+                },
+                get() {
+                    if (this._img == undefined) {
+                        const img = new Image()
+                        this._img = img
+                        img.onerror = (e) => {
+                            this._img0.src = emptyImage;
+                        }
+                        img.onload = (e) => {
+                            app.graph.setDirtyCanvas(true);
+                            this._img0.src = img.src
+                        }
+
+                    }
+                    if (this._img0 === undefined) {
+                        this._img0 = new Image()
+                    }
+                    if (this._imgs === undefined) {
+                        this._imgs = [this._img0];
+                    }
+
+                    if(w.value && w.value !== '[IMAGE DATA]') {
+                        const imgSrc = `data:image/png;base64,${w.value}`
+                        if (this._img.src !== imgSrc) {
+                            this._img.src = imgSrc
+                        }
+                    }
+
+                    return this._imgs;
+                }
+            });
         }
     }
 })

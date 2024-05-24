@@ -151,18 +151,21 @@ class InputScreenShot(FsInputNode):
     FS_CLASS_LABEL = "Image"
 
     def process_value(self, value):
-        imgdata = base64.b64decode(value)
-        img = Image.open(BytesIO(imgdata))
+        try:
+            imgdata = base64.b64decode(value)
+            img = Image.open(BytesIO(imgdata))
 
-        # if "A" in img.getbands():
-        #     mask = np.array(img.getchannel("A")).astype(np.float32) / 255.0
-        #     mask = 1.0 - torch.from_numpy(mask)
-        # else:
-        #     mask = torch.zeros((64, 64), dtype=torch.float32, device="cpu")
+            # if "A" in img.getbands():
+            #     mask = np.array(img.getchannel("A")).astype(np.float32) / 255.0
+            #     mask = 1.0 - torch.from_numpy(mask)
+            # else:
+            #     mask = torch.zeros((64, 64), dtype=torch.float32, device="cpu")
 
-        img = img.convert("RGB")
-        img = np.array(img).astype(np.float32) / 255.0
-        img = torch.from_numpy(img)[None,]
+            img = img.convert("RGB")
+            img = np.array(img).astype(np.float32) / 255.0
+            img = torch.from_numpy(img)[None,]
+        except Exception as e:
+            raise ValueError(f"Could not read base64 image-data.\n{str(e)}")
 
         return (img,)
         # return (img, mask)

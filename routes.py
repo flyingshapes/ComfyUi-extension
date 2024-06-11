@@ -3,7 +3,8 @@ from execution import validate_prompt
 from aiohttp import web
 from aiohttp.web import WebSocketResponse
 from aiohttp.web_request import Request
-from . import common, dataReceiver
+from .common import *
+from . import dataReceiver
 
 routes: web.RouteTableDef = PromptServer.instance.routes
 
@@ -18,7 +19,7 @@ async def push_workflow(request: Request):
 
     server: PromptServer = PromptServer.instance
     sid: str = json_data.get("clientId", server.client_id)
-    is_fs = sid is None or sid.startswith(common.fs_sid_prefix)
+    is_fs = sid is None or is_fs_id(sid)
 
     if is_fs:
         # pass
@@ -28,7 +29,7 @@ async def push_workflow(request: Request):
         if user_id is None:
             return web.json_response({"error": "missing UserId"}, status=400)
 
-        sid = common.fs_sid_prefix + user_id
+        sid = make_fs_id(user_id)
 
         sock: WebSocketResponse | None = server.sockets.get(sid, None)
         if sock is None:
@@ -59,7 +60,7 @@ async def set_extra_data(request: Request):
     if not isinstance(data, dict):
         return web.json_response({"error": "data must be a dictionary"}, status=400)
 
-    existing_data = common.FlyingShapes_extra_data.setdefault(client_id, {})
+    existing_data = FlyingShapes_extra_data.setdefault(client_id, {})
 
     existing_data.update(data)
     response = {"message": "fs extra data sent to comfyUi"}
@@ -77,7 +78,7 @@ async def provide_input_value(request: Request):
     if fs_client_id is None:
         return web.json_response({"error": "missing clientId"}, status=400)
 
-    handlers = common.FlyingShapes_message_handlers.setdefault(fs_client_id, set())
+    handlers = FlyingShapes_message_handlers.setdefault(fs_client_id, set())
     was_handled = False
     for handler in handlers.copy():
         test, future = handler
@@ -97,7 +98,7 @@ async def push_workflow(request: Request):
     if user_id is None:
         return web.json_response({"error": "missing UserId"}, status=400)
 
-    sid = common.fs_sid_prefix + user_id
+    sid = make_fs_id(user_id)
     server: PromptServer = PromptServer.instance
 
     sock: WebSocketResponse | None = server.sockets.get(sid, None)

@@ -41,10 +41,9 @@ class FsInputNode:
         stored_value = kwargs.get("stored_value", None)
         server: PromptServer = PromptServer.instance
         client_id: str = server.client_id
-        is_fs = client_id.startswith(fs_sid_prefix)
+        is_fs = is_fs_id(client_id)
 
         fs_data = FlyingShapes_extra_data.get(client_id, None)
-        fs_sid = None
 
         if is_fs:
             if stored_value is None:
@@ -65,7 +64,7 @@ class FsInputNode:
         timeout = fs_data.get("timeout", None)
         if user_id is None or len(user_id) == 0:
             raise Exception(err + "None or empty userId.")
-        fs_sid = fs_sid_prefix + user_id
+        fs_sid = make_fs_id(user_id)
 
         sock: WebSocketResponse | None = server.sockets.get(client_id, None)
         if sock is None:  # or queue is None:

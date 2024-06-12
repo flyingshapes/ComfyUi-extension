@@ -22,25 +22,27 @@ def test_message(test: common.ReceiveFilter, data: typing.Any) -> bool:
     return True
 
 
-def node_receive_message(sid, test: common.ReceiveFilterOrDict,
-                         timeout: int | str | None = None) -> dict:
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+# throws TimeoutError
+async def node_receive_message_async(sid, test: common.ReceiveFilterOrDict,
+                                     timeout: int | str | None = None):
+    loop = asyncio.get_running_loop()
+    future = loop.create_future()
 
-    future: asyncio.Future = loop.create_future()
     handlers = common.FlyingShapes_message_handlers.setdefault(sid, set())
     if isinstance(test, dict):
         test = frozenset(test.items())
     handler = (test, future)
     handlers.add(handler)
 
-    if isinstance(timeout, str) and timeout.isnumeric():
-        timeout = float(timeout)
+    if isinstance(timeout, str):
+        timeout = float(timeout) if timeout.isnumeric() else None
 
-    if isinstance(timeout, int | float):
-        future: typing.Awaitable = asyncio.wait_for(future, timeout)
-    result: dict = loop.run_until_complete(future)
-    loop.close()
-    asyncio.set_event_loop(None)
-
+    result = await asyncio.wait_for(future, timeout)
     return result
+
+
+# throws TimeoutError
+def node_receive_message(sid, test: common.ReceiveFilterOrDict,
+                         timeout: int | str | None = None) -> dict:
+    with asyncio.Runner() as runner:
+        return runner.run(node_receive_message_async(sid, test, timeout))

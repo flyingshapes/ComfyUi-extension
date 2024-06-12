@@ -24,7 +24,12 @@ const style = `
 }
 .fs-grid {
     display: grid;
-    grid-template-columns: 100px 1fr;
+    gap: 8px;
+    grid-template-columns: 125px 1fr;
+}
+.fs-grid input[type=checkbox] {
+    width: 32px;
+    height: 32px;
 }
 .fs-validation-error {
     /*position: absolute;*/
@@ -405,7 +410,8 @@ const initialState = {
     userId: '',
     askName: true,
     inputFromFs: false,
-    lastName: 'ComfyUi web'
+    lastName: 'ComfyUi web',
+    fsWebWorkflow: null,
 }
 const state = storageProxy(storageKey, {
     defaults: initialState,
@@ -515,9 +521,10 @@ async function sendExtraData() {
 }
 
 async function pushWorkflowToFs() {
-    const {output: workflow} = await app.graphToPrompt();
+    const {output, workflow} = await app.graphToPrompt();
     const {userId, askName, lastName} = state
-    const data = {workflow, userId}
+    /*workflow*/
+    const data = {workflow: output, userId}
     if (askName) {
         const name  = prompt("Send workflow to FS, enter a name:", lastName)
         if (name == null) return
@@ -544,7 +551,51 @@ async function getFsConnection() {
         } else {
             elem.classList.remove('connected')
         }
+        if (result.connectedWeb) {
+            elem.classList.add('connected-web')
+        } else {
+            elem.classList.remove('connected-web')
+        }
     } catch (e) {
-        elem.classList.remove('connected')
+        elem.classList.remove('connected', 'connected-web')
+    }
+}
+
+const loadWorkflowFromFsWebEvent = 'fs-api-load-workflow'
+api.addEventListener(loadWorkflowFromFsWebEvent, loadWorkflowFromFsWeb)
+
+/**
+ * receives a workflow from fs-web
+ * @param {string} id the workflow id, as stored in fs-web db
+ * @param {string} name the workflow name
+ * @param {object} apiWorkflow the workflow in api-format
+ * @param {object} originalWorkflow if stored, the workflow with node positions
+ * @param {object} detail all data from the event
+ * @returns {Promise<void>}
+ */
+async function loadWorkflowFromFsWeb({ detail: { id, name, apiWorkflow, originalWorkflow }, detail }) {
+    console.log(id, name, apiWorkflow, originalWorkflow)
+
+    const idIsString = typeof id === "string" && uuidv4re.test(id)
+    if (!idIsString) {
+        const error = `received ${loadWorkflowFromFsWebEvent}, but no valid id`
+        console.error(error, detail)
+        alert(error)
+        return
+    }
+
+    if (!name) console.warn('received unnamed workflow')
+    name ??= `unnamed (${id})`
+
+    state.fsWebWorkflow = {id, name}
+
+    if (originalWorkflow) {
+        await app.loadGraphData(originalWorkflow);
+    } else if (app.isApiJson(apiWorkflow)) {
+        app.loadApiJson(apiWorkflow);
+    } else {
+        const error = `received ${loadWorkflowFromFsWebEvent}, but missing workflow data`
+        console.error(error, detail)
+        alert(error)
     }
 }

@@ -16,6 +16,7 @@ Input_Nodes = [
     InputSlider,
     InputText,
     InputScreenShot,
+    InputStyle
 ]
 
 NODE_CLASS_MAPPINGS = {

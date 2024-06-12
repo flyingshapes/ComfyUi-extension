@@ -1,13 +1,11 @@
 import json
 from .dataReceiver import *
 from .common import *
+from .imgUtil import *
 
 from server import PromptServer
 from aiohttp.web import WebSocketResponse
-import base64
-from PIL import Image
-from io import BytesIO
-import numpy as np
+import comfy.utils
 import torch
 
 
@@ -22,7 +20,7 @@ class FsInputNode:
     def IS_CHANGED(self, **kwargs):
         return float("NaN")  # time.time()
 
-    def process_value(self, value):
+    def process_value(self, value: str | None):
         return (value,)
 
     def fs_request_data(self, **kwargs):
@@ -38,7 +36,7 @@ class FsInputNode:
         return "flyingshapes_request"
 
     def receive_value(self, **kwargs):
-        stored_value = kwargs.get("stored_value", None)
+        stored_value: str | None = kwargs.get("stored_value", None)
         server: PromptServer = PromptServer.instance
         client_id: str = server.client_id
         is_fs = is_fs_id(client_id)
@@ -130,6 +128,59 @@ class InputText(FsInputNode):
     FS_CLASS_LABEL = "Text"
 
 
+class InputStyle(FsInputNode):
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "style": ("STRING", {"default": "sketch"}),
+                "order": ("INT", {"default": 1, "min": 0, }),
+                "stored_value": ("STRING", {"default": empty_base64_image, }),
+            },
+        }
+
+    RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE",)
+    RETURN_NAMES = ("style", "image0", "image1",)
+    CATEGORY = "flyingshapes/style"
+    FS_CLASS_LABEL = "Style"
+
+    def process_value(self, value):
+        img_strs = value.split('.')
+        try:
+            all_imgs = [
+                img_from_base64(imgStr)
+                for imgStr in img_strs
+            ]
+            img0 = all_imgs[0]
+        except Exception as e:
+            raise ValueError(f"Could not read base64 image-data.\n{str(e)}")
+
+        if len(all_imgs) < 1:
+            print("Style input is only a single image")
+            return (img0,)
+
+        img_rest = [
+            comfy.utils.common_upscale(img.movedim(-1,1), img0.shape[2], img0.shape[1], "bilinear", "center").movedim(1,-1)
+            if img0.shape[1:] != img.shape[1:]
+            else img
+            for img in all_imgs[1:]
+        ]
+
+        result = torch.cat([img0]+img_rest, dim=0)
+
+        return result, img0, all_imgs[1] if len(all_imgs) > 1 else img0,
+
+    def fs_request_data(self, style: str | None = None, **kwargs):
+        if style is None:
+            raise ValueError("missing style field")
+        return {
+            "style": style,
+        }
+
+    def fs_request_message_type(self, **kwargs):
+        return "flyingshapes_request_style"
+
+
 class InputScreenShot(FsInputNode):
     screenshot_types = ["default", "depth", "normal", "sketch"]
 
@@ -140,7 +191,7 @@ class InputScreenShot(FsInputNode):
                 "type": (s.screenshot_types,),
                 "width": ("INT", {"default": 912, "min": 12, }),
                 "height": ("INT", {"default": 512, "min": 12, }),
-                "stored_value": ("STRING", {"default": 0.0, }),
+                "stored_value": ("STRING", {"default": empty_base64_image, }),
             },
         }
 
@@ -150,24 +201,9 @@ class InputScreenShot(FsInputNode):
     FS_CLASS_LABEL = "Image"
 
     def process_value(self, value):
-        try:
-            imgdata = base64.b64decode(value)
-            img = Image.open(BytesIO(imgdata))
-
-            # if "A" in img.getbands():
-            #     mask = np.array(img.getchannel("A")).astype(np.float32) / 255.0
-            #     mask = 1.0 - torch.from_numpy(mask)
-            # else:
-            #     mask = torch.zeros((64, 64), dtype=torch.float32, device="cpu")
-
-            img = img.convert("RGB")
-            img = np.array(img).astype(np.float32) / 255.0
-            img = torch.from_numpy(img)[None,]
-        except Exception as e:
-            raise ValueError(f"Could not read base64 image-data.\n{str(e)}")
-
-        return (img,)
+        img = img_from_base64(value)
         # return (img, mask)
+        return (img,)
 
     def fs_request_data(self, type=None, height=512, width=910, **kwargs):
         return {
@@ -180,7 +216,6 @@ class InputScreenShot(FsInputNode):
         return {
             "type": type if type is not None else self.screenshot_types[0],
         }
-
 
     def fs_request_message_type(self, **kwargs):
         return "flyingshapes_request_screenshot"

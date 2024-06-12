@@ -71,6 +71,7 @@ async def set_extra_data(request: Request):
 async def provide_input_value(request: Request):
     json_data = await request.json()
     data = json_data.get("data", None)
+    error = json_data.get("error", None)
     fs_client_id = json_data.get("clientId", None)
     #fs_client_id = json_data.get("fsClientId", None)
     if data is None:
@@ -84,7 +85,11 @@ async def provide_input_value(request: Request):
         test, future = handler
         if dataReceiver.test_message(test, data):
             handlers.remove(handler)
-            future.get_loop().call_soon_threadsafe(future.set_result, data)
+            loop = future.get_loop()
+            if error is None:
+                loop.call_soon_threadsafe(future.set_result, data)
+            else:
+                loop.call_soon_threadsafe(future.set_exception, ValueError(error))
             was_handled = True
 
     response = {"message": "provided node input data from FS to comfyUi", "consumed": was_handled}
@@ -99,8 +104,13 @@ async def push_workflow(request: Request):
         return web.json_response({"error": "missing UserId"}, status=400)
 
     sid = make_fs_id(user_id)
+    sidWeb = make_fs_id(user_id, 'web')
     server: PromptServer = PromptServer.instance
 
     sock: WebSocketResponse | None = server.sockets.get(sid, None)
+    sockWeb: WebSocketResponse | None = server.sockets.get(sidWeb, None)
 
-    return web.json_response({"connected": False if sock is None else True})
+    return web.json_response({
+        "connected": False if sock is None else True,
+        "connectedWeb": False if sockWeb is None else True,
+    })

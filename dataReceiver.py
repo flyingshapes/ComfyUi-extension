@@ -39,7 +39,7 @@ def node_receive_message(sid, test: common.ReceiveFilterOrDict,
 
     if isinstance(timeout, int | float):
         future: typing.Awaitable = asyncio.wait_for(future, timeout)
-    result = loop.run_until_complete(future)
+    result: dict = loop.run_until_complete(future)
     loop.close()
     asyncio.set_event_loop(None)
 

@@ -85,11 +85,16 @@ async def provide_input_value(request: Request):
         test, future = handler
         if dataReceiver.test_message(test, data):
             handlers.remove(handler)
-            loop = future.get_loop()
-            if error is None:
-                loop.call_soon_threadsafe(future.set_result, data)
-            else:
-                loop.call_soon_threadsafe(future.set_exception, ValueError(error))
+            try:
+                loop = future.get_loop()
+                if error is None:
+                    loop.call_soon_threadsafe(future.set_result, data)
+                else:
+                    loop.call_soon_threadsafe(future.set_exception, ValueError(error))
+            except asyncio.CancelledError as e:
+                pass
+            except RuntimeError as e:   #Event loop is closed
+                pass
             was_handled = True
 
     response = {"message": "provided node input data from FS to comfyUi", "consumed": was_handled}

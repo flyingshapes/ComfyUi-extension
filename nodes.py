@@ -124,7 +124,7 @@ class InputText(FsInputNode):
 
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("Text (STRING)",)
-    CATEGORY = "flyingshapes/text"
+    CATEGORY = "flyingshapes"
     FS_CLASS_LABEL = "Text"
 
 
@@ -141,7 +141,7 @@ class InputStyle(FsInputNode):
 
     RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE",)
     RETURN_NAMES = ("style", "image0", "image1",)
-    CATEGORY = "flyingshapes/style"
+    CATEGORY = "flyingshapes"
     FS_CLASS_LABEL = "Style"
 
     def process_value(self, value):
@@ -197,7 +197,7 @@ class InputScreenShot(FsInputNode):
 
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("Screenshot (IMAGE)",)
-    CATEGORY = "flyingshapes/screenshot"
+    CATEGORY = "flyingshapes"
     FS_CLASS_LABEL = "Image"
 
     def process_value(self, value):

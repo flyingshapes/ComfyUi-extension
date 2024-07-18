@@ -219,3 +219,21 @@ class InputScreenShot(FsInputNode):
 
     def fs_request_message_type(self, **kwargs):
         return "flyingshapes_request_screenshot"
+
+
+class InputSettingsNode(FsInputNode):
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "batch_size": ("INT", {"default": 3, "min": 1, }),
+            },
+        }
+
+    def receive_value(self, batch_size: int, **kwargs):
+        return (batch_size,)
+
+    RETURN_TYPES = ("INT",)
+    RETURN_NAMES = ("batch_size",)
+    CATEGORY = "flyingshapes"
+    FS_CLASS_LABEL = "Settings"

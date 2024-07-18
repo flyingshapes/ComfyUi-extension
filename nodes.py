@@ -221,7 +221,7 @@ class InputScreenShot(FsInputNode):
         return "flyingshapes_request_screenshot"
 
 
-class InputSettingsNode(FsInputNode):
+class InputSettings(FsInputNode):
     @classmethod
     def INPUT_TYPES(s):
         return {

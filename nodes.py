@@ -255,7 +255,7 @@ class OutputImages:
     OUTPUT_NODE = True
     CATEGORY = "flyingshapes"
 
-    def save_images(self, images):
+    def save_images(self, images, **kwargs):
         pbar = comfy.utils.ProgressBar(images.shape[0])
         step = 0
         for image in images:

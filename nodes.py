@@ -7,6 +7,7 @@ from server import PromptServer
 from aiohttp.web import WebSocketResponse
 import comfy.utils
 import torch
+import time
 
 
 class FsInputNode:
@@ -106,7 +107,7 @@ class InputSlider(FsInputNode):
 
     RETURN_TYPES = ("FLOAT",)
     RETURN_NAMES = ("Slider Value (FLOAT)",)
-    CATEGORY = "flyingshapes/slider"
+    CATEGORY = "flyingshapes"
     FS_CLASS_LABEL = "Slider"
 
 
@@ -237,3 +238,33 @@ class InputSettings(FsInputNode):
     RETURN_NAMES = ("batch_size",)
     CATEGORY = "flyingshapes"
     FS_CLASS_LABEL = "Settings"
+
+
+class OutputImages:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "images": ("IMAGE", ),
+                "order": ("INT", {"default": 0, "min": 0, }),
+            },
+        }
+
+    RETURN_TYPES = ()
+    FUNCTION = "save_images"
+    OUTPUT_NODE = True
+    CATEGORY = "flyingshapes"
+
+    def save_images(self, images):
+        pbar = comfy.utils.ProgressBar(images.shape[0])
+        step = 0
+        for image in images:
+            i = 255. * image.cpu().numpy()
+            img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
+            pbar.update_absolute(step, images.shape[0], ("PNG", img, None))
+            step += 1
+
+        return {}
+
+    def IS_CHANGED(s, images):
+        return time.time()

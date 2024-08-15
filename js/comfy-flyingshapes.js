@@ -39,20 +39,89 @@ const style = `
     grid-column: span 2;
     /*display: none;*/
 }
+
 .connected-display {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+}
+
+.connection-bubble {
     display: inline-block;
-    margin-left: 8px;
     width: 12px;
     height: 12px;
     border-radius: 50%;
     background-color: #4e4e4e;
 }
 
-.connected-display.valid:not(.connected) {
+.connected-display.valid:not(.connected) .connection-bubble.vr {
     background-color: var(--error-text);
 }
-.connected-display.valid.connected {
+.connected-display.valid.connected .connection-bubble.vr {
     background-color: var(--success-text, #0d0);
+}
+.connected-display.valid:not(.connected-web) .connection-bubble.web {
+    background-color: var(--error-text);
+}
+.connected-display.valid.connected-web .connection-bubble.web {
+    background-color: var(--success-text, #0d0);
+}
+
+/*
+@media (max-height: 800px) {
+    #crystools-root {
+        transition: height;
+        transition-duration: 300ms;
+        overflow: hidden;
+        height: 130px;
+    }
+    
+    #crystools-root:not(:hover) {
+        height: 30px;
+    }
+}
+*/
+/*
+margin-bottom: -40px;
+transform: scaleY(.65) translateY(-40px);
+*/
+
+#fs-web-opened-wf {
+    display: none;
+    position: absolute;
+    top: 2px;
+    right: 190px;
+    padding: 20px;
+    background-color: rgba(0, 0, 0, .3);
+    grid-template-columns: 36px 1fr;
+    width: 240px;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+}
+#fs-web-opened-wf .row {
+    grid-column: 1/-1;
+}
+#fs-web-opened-wf .close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+}
+#fs-web-opened-wf button {
+    background-color: transparent;
+    color: rgba(255, 255, 255, .75);
+    border-style: none;
+}
+#fs-save-workflow-web {
+    border: 1px solid rgba(255, 255, 255, .75) !important;
+    border-radius: 6px;
+}
+#fs-web-opened-wf button:hover {
+    color: white;
+}
+#fs-web-opened-wf.show {
+    display: grid;
 }
 `
 
@@ -81,20 +150,42 @@ const addValidation = (key, h) => {
 }
 
 let fsButtons = {
-    settings: undefined,
+    //settings: undefined,
     sendWorkflow: undefined,
+    requestWebWorkflow: undefined,
+    saveFsWeb: undefined
 };
 
 let connectedInterval = undefined
 /**
- *
  * @type {undefined | HTMLElement}
  */
-let connectedDisplayEl = undefined
+let connectedDisplayParent = undefined
 
 const getExtraData = () => {
     const {lspReset, userId, ...s} = JSON.parse(ls.getItem(storageKey)) || {}
     return {...s, userId}
+}
+
+
+/**
+ *
+ * @param {object} els
+ * @returns {{vals: {}, keys: {}, flat: *[]}}
+ */
+function makeEls(els){
+    const keys = {}
+    const vals = {}
+    const flat = []
+    for (const [k, v] of Object.entries(els)) {
+        const elK = $el("div", {className: "key",}, [k])
+        const elV = $el("div", {className: "val",}, [v])
+        keys[`${k}Kel`] = elK
+        vals[`${k}Vel`] = elV
+        flat.push(elK, elV)
+    }
+
+    return {keys, vals, flat}
 }
 
 app.registerExtension({
@@ -110,7 +201,9 @@ app.registerExtension({
             const modifierPressed = ctrlKey && shiftKey
 
             const modifierKeyIdMap = {
-                S: "#fs-send-workflow-button",
+                F: "#fs-send-workflow-button",
+                S: "#fs-save-workflow-web",
+                O: "#fs-request-web-workflow",
             };
 
             const modifierKeybindId = modifierKeyIdMap[event.key];
@@ -138,9 +231,26 @@ app.registerExtension({
         }
 
         let order = 50
-        connectedDisplayEl = $el("span", {
-            className: "connected-display",
+        const fsVrLabel = $el("span", {}, ["Fs VR"])
+        const fsWebLabel = $el("span", {}, ["Fs Web"])
+        const connectedDisplayEl = $el("span", {
+            className: "connection-bubble vr",
         })
+
+        const connectedDisplayElWeb = $el("span", {
+            className: "connection-bubble web",
+        })
+
+        const settingsIcon = $el("span", {
+            id: "fs-settings-button",
+            className: "comfy-btn",
+            onclick: () => {
+                getDialogInstance().show()
+                triggerValidation()
+            }
+        }, [
+            "⚙️"
+        ])
 
         const makeEl = (...args) => {
             const elem = $el(...args)
@@ -154,34 +264,75 @@ app.registerExtension({
                 width: "100%",
             },
         })
-        makeEl("h3", {
+        connectedDisplayParent = makeEl("div", {
             style: {
                 order: order++,
                 margin: "10px 0",
             },
-        }, ["Flyingshapes", connectedDisplayEl])
+            className: "connected-display"
+        }, [fsVrLabel, connectedDisplayEl, fsWebLabel, connectedDisplayElWeb, settingsIcon])
 
-        fsButtons.settings = makeEl("button", {
-            id: "fs-settings-button",
-            onclick: () => {
-                getDialogInstance().show()
-                triggerValidation()
-            }
+        fsButtons.requestWebWorkflow = makeEl("button", {
+            id: "fs-request-web-workflow",
+            onclick: requestEditWorkflow,
         }, [
-            "Settings"
+            "Open workflow"
         ])
 
         fsButtons.sendWorkflow = makeEl("button", {
             id: "fs-send-workflow-button",
-            onclick: pushWorkflowToFs
+            onclick: () => pushWorkflowToFs()
         }, [
-            "send workflow"
+            "send to VR"
+        ])
+
+        fsButtons.saveFsWeb = $el("button", {
+            id: "fs-save-workflow-web",
+            className: 'row',
+            onclick: () => pushWorkflowToFs(true)
+        }, [
+            "save (FS web)"
         ])
 
         clearInterval(connectedInterval)
         triggerValidation()
         connectedInterval = setInterval(getFsConnection, 2500)
         addValidation('userId', getFsConnection)
+
+        const {flat, vals: {nameVel, descVel, updVel}} = makeEls({
+            name: "workflow-name",
+            desc: "workflow-description",
+            upd: "updated-at"
+        })
+
+        const closeMenuButton = $el("button", {
+            className: "close comfy-close-menu-btn",
+            onclick: () => state.fsWebWorkflow = undefined
+        }, ["×"])
+
+        const openedWfInfo = makeEl("div", {
+            id: "fs-web-opened-wf"
+        }, [closeMenuButton, ...flat, fsButtons.saveFsWeb])
+
+        const updateFsWebWorkflow = (value) => {
+            if (value) {
+                const {description, id, name, updatedAt} = value
+                console.log(id)
+                nameVel.innerHTML = name
+                descVel.innerHTML = description
+                updVel.innerHTML = updatedAt
+                openedWfInfo.classList.add('show')
+            } else {
+                openedWfInfo.classList.remove('show')
+            }
+        }
+
+        updateFsWebWorkflow(state.fsWebWorkflow)
+
+        state.addEventListener('update:fsWebWorkflow', (e) => {
+            const value = e.detail?.value
+            updateFsWebWorkflow(value)
+        })
         //getFsConnection
     },
     async provideExtraData() {
@@ -330,47 +481,7 @@ const storageProxy = (name, opts = {}) => {
     } = opts
 
     const state = new EventTarget()
-    try {
-        const restoredState = JSON.parse(ls.getItem(name)) || {}
-        if (restoredState.lspReset !== lspReset) {
-            ls.removeItem(name)
-            for (const [k, v] of Object.entries({
-                ...defaults
-            })) {
-                state[k] = v
-            }
-        } else {
-            for (const [k, v] of Object.entries({
-                ...defaults,
-                ...restoredState
-            })) {
-                state[k] = v
-            }
-        }
-    } catch (e) {
-        console.error(e)
-        ls.removeItem(name)
-    }
-
     state.lspReset = lspReset
-
-    if (storageEventListener && typeof window !== 'undefined' && typeof window.addEventListener !== 'undefined') {
-        window.addEventListener('storage', (ev) => {
-            // Replace state with whats stored on localStorage... it is newer.
-            for (const k of Object.keys(state)) {
-                delete state[k]
-            }
-            const restoredState = JSON.parse(ls.getItem(name)) || {}
-            for (const [k, v] of Object.entries({
-                ...defaults,
-                ...restoredState
-            })) {
-                state[k] = v
-            }
-            opts.lspReset = restoredState.lspReset
-            state.dispatchEvent(new Event('update'))
-        })
-    }
 
     function boundHandler(rootRef) {
         return {
@@ -388,7 +499,13 @@ const storageProxy = (name, opts = {}) => {
                 obj[prop] = value
                 try {
                     ls.setItem(name, JSON.stringify(rootRef))
-                    rootRef.dispatchEvent(new Event('update'))
+                    const evData = {
+                        detail: {
+                            prop, value
+                        }
+                    }
+                    rootRef.dispatchEvent(new CustomEvent('update', evData))
+                    rootRef.dispatchEvent(new CustomEvent(`update:${prop}`, evData))
                     return true
                 } catch (e) {
                     console.error(e)
@@ -401,7 +518,50 @@ const storageProxy = (name, opts = {}) => {
         }
     }
 
-    return new Proxy(state, boundHandler(state))
+    const result = new Proxy(state, boundHandler(state))
+
+    try {
+        const restoredState = JSON.parse(ls.getItem(name)) || {}
+        if (restoredState.lspReset !== lspReset) {
+            ls.removeItem(name)
+            for (const [k, v] of Object.entries({
+                ...defaults
+            })) {
+                result[k] = v
+            }
+        } else {
+            for (const [k, v] of Object.entries({
+                ...defaults,
+                ...restoredState
+            })) {
+                result[k] = v
+            }
+        }
+    } catch (e) {
+        console.error(e)
+        ls.removeItem(name)
+    }
+
+    if (storageEventListener && typeof window !== 'undefined' && typeof window.addEventListener !== 'undefined') {
+        window.addEventListener('storage', (ev) => {
+            // Replace state with whats stored on localStorage... it is newer.
+            for (const k of Object.keys(state)) {
+                delete result[k]
+            }
+            const restoredState = JSON.parse(ls.getItem(name)) || {}
+            for (const [k, v] of Object.entries({
+                ...defaults,
+                ...restoredState
+            })) {
+                result[k] = v
+                //result[k] = v
+            }
+            opts.lspReset = restoredState.lspReset
+            //state.dispatchEvent(new Event('update'))
+        })
+    }
+
+    return result
 }
 
 const initialState = {
@@ -412,6 +572,7 @@ const initialState = {
     inputFromFs: false,
     lastName: 'ComfyUi web',
     fsWebWorkflow: null,
+    changeMessage: 'Updated workflow...',
 }
 const state = storageProxy(storageKey, {
     defaults: initialState,
@@ -490,7 +651,7 @@ class FsDialog extends ComfyDialog {
  * @param {object} data
  * @param catchErr if true, exceptions are caught, otherwise rethrown
  * @param showError if true and the request returns with an error, the error is shown via ui dialog
- * @returns {Promise<void>}
+ * @returns {Promise<any>}
  */
 async function postRequest(endPoint, data, catchErr = false, showError = true) {
     const clientId = api.initialClientId ?? api.clientId
@@ -501,8 +662,8 @@ async function postRequest(endPoint, data, catchErr = false, showError = true) {
         })
         if (!response.ok) {
             const data = await response.json()
-            console.error(data)
             if (showError)  app.ui.dialog.show(data.error ?? "Unknown Error.");
+            // noinspection ExceptionCaughtLocallyJS
             throw data
         } else try {
             return await response.json()
@@ -520,12 +681,31 @@ async function sendExtraData() {
     await postRequest("extra-data", {extraData})
 }
 
-async function pushWorkflowToFs() {
-    const {output, workflow} = await app.graphToPrompt();
-    const {userId, askName, lastName} = state
+async function pushWorkflowToFs(web = false) {
+    const {output, workflow: workflow_ui} = await app.graphToPrompt();
+    const {userId, askName, lastName, fsWebWorkflow, changeMessage} = state
     /*workflow*/
-    const data = {workflow: output, userId}
-    if (askName) {
+    const data = {workflow: output, workflow_ui, userId}
+    console.error(fsWebWorkflow)
+
+    if (web) {
+        if (!fsWebWorkflow) {
+            app.ui.dialog.show(`No workflow from FS Web Opened`);
+            return
+        }
+        const {id, name} = fsWebWorkflow
+        const change_message  = prompt("What has changed", changeMessage)
+        if (change_message == null) return
+        //app.ui.dialog.show(`Workflow not saved.`);
+
+        state.changeMessage = change_message
+        Object.assign(data, {
+            id,
+            name,
+            change_message,
+            fs_id_prefix: 'web'
+        })
+    } else if (askName) {
         const name  = prompt("Send workflow to FS, enter a name:", lastName)
         if (name == null) return
         state.lastName = name
@@ -534,9 +714,41 @@ async function pushWorkflowToFs() {
     await postRequest("push-workflow", data)
 }
 
+async function requestEditWorkflow() {
+    const {userId} = state
+    /*workflow*/
+    const data = {userId}
+
+    try {
+        const result = await postRequest("request-workflow-edit", data, false, false)
+        console.log('Received result:', result)
+        const {workflow: {
+            graphUi,
+            id,
+            name,
+            updatedAt,
+            description
+        }} = result
+
+        state.fsWebWorkflow = {id, name, description, updatedAt}
+        app.ui.dialog.show(`Opened workflow '${name}' from FS Web. Description: "${description}"`);
+        await app.loadGraphData(graphUi);
+    } catch (e) {
+        if (e.cancelled) {
+            app.ui.dialog.show("The request to open a workflow was declined from FS Web.");
+        } else if (e.error) {
+            app.ui.dialog.show(`An error occurred: ${e.error}`);
+            console.error(e)
+        } else {
+            app.ui.dialog.show("An unknown error occurred, when trying to open a workflow from FS Web.");
+            console.error(e)
+        }
+    }
+}
+
 async function getFsConnection() {
     const {userId} = state
-    const elem = connectedDisplayEl
+    const elem = connectedDisplayParent
     if (!elem) return
     const uidValid = validState['userId'] === true
     if (uidValid) {
@@ -546,6 +758,7 @@ async function getFsConnection() {
     }
     try {
         let result = await postRequest("fs-connection", {userId}, undefined, false)
+        //console.log(result)
         if (result.connected) {
             elem.classList.add('connected')
         } else {

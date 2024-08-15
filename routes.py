@@ -14,26 +14,41 @@ async def push_workflow(request: Request):
     json_data = await request.json()
     name = json_data.get("name", None)
     workflow = json_data.get("workflow", None)
+    workflow_ui = json_data.get("workflow_ui", None)
+    change_message = json_data.get("change_message", None)
+    client_id: str = json_data.get("clientId", None) #server.client_id
+    workflow_id = json_data.get("id", None)
+
+    if workflow_id is None:
+        return web.json_response({"error": "missing workflow id"}, status=400)
+
     if workflow is None:
         return web.json_response({"error": "missing workflow"}, status=400)
 
-    server: PromptServer = PromptServer.instance
-    sid: str = json_data.get("clientId", server.client_id)
-    is_fs = sid is None or is_fs_id(sid)
+    if client_id is None:
+        return web.json_response({"error": "missing client_id."}, status=400)
 
+    server: PromptServer = PromptServer.instance
+
+    is_fs = is_fs_id(client_id)
     if is_fs:
         # pass
         return web.json_response({"error": "workflow supposed to be sent from web ui."}, status=400)
-    else:
-        user_id = json_data.get("userId", None)
-        if user_id is None:
-            return web.json_response({"error": "missing UserId"}, status=400)
 
-        sid = make_fs_id(user_id)
+    user_id = json_data.get("userId", None)
+    if user_id is None:
+        return web.json_response({"error": "missing UserId"}, status=400)
 
-        sock: WebSocketResponse | None = server.sockets.get(sid, None)
-        if sock is None:
-            return web.json_response({"error": "no socket connection for '" + sid}, status=400)
+    sid_prefixes = []
+    sid_prefix = json_data.get("fs_id_prefix", None)
+    if sid_prefix is not None:
+        sid_prefixes.append(sid_prefix)
+
+    sid = make_fs_id(user_id, *sid_prefixes)
+
+    sock: WebSocketResponse | None = server.sockets.get(sid, None)
+    if sock is None:
+        return web.json_response({"error": "no socket connection for '" + sid}, status=400)
 
     valid = validate_prompt(workflow)
     print("sending workflow: "+("FS ===> webui" if is_fs else "webui ===> FS"))
@@ -43,8 +58,77 @@ async def push_workflow(request: Request):
         return web.json_response({"error": valid[1], "node_errors": valid[3]}, status=400)
 
     response = {"message": "sending workflow to flyingshapes"}
-    server.send_sync("flyingshapes_workflow", {"workflow": workflow, "name": name}, sid)
+    server.send_sync("flyingshapes_workflow", {
+        "id": workflow_id,
+        "name": name,
+        "workflow": workflow,
+        "graphApi": workflow,
+        "graphUi": workflow_ui,
+        "workflowChanges": change_message,
+        "comfyClientId": client_id,
+    }, sid)
     return web.json_response(response)
+
+
+@routes.post("/flyingshapes/request-workflow-edit")
+async def request_workflow_edit(request: Request):
+    json_data = await request.json()
+    name = json_data.get("name", None)
+    timeout = json_data.get("timeout", None)
+    client_id: str = json_data.get("clientId", None) #server.client_id
+    user_id = json_data.get("userId", None)
+    workflow_id = json_data.get("id", None)
+    # workflow = json_data.get("workflow", None)
+    # workflow_ui = json_data.get("workflow_ui", None)
+    # if workflow is None:
+    #     return web.json_response({"error": "missing workflow"}, status=400)
+
+    if client_id is None:
+        return web.json_response({"error": "missing client_id."}, status=400)
+    if user_id is None:
+        return web.json_response({"error": "missing UserId"}, status=400)
+
+    is_fs = is_fs_id(client_id)
+    if is_fs:
+        # pass
+        return web.json_response({"error": "edit-request is supposed to be sent from web ui."}, status=400)
+
+    server: PromptServer = PromptServer.instance
+    sid = make_fs_id(user_id, 'web')
+
+    sock: WebSocketResponse | None = server.sockets.get(sid, None)
+    if sock is None:
+        return web.json_response({"error": "no socket connection for '" + sid}, status=400)
+
+    print("requesting workflow from FS-Web!")
+
+    server.send_sync("flyingshapes_workflow_edit_request", {
+        "name": name,
+        "id": workflow_id,
+        "comfyClientId": client_id,
+    }, sid)
+
+    try:
+        result = await dataReceiver.node_receive_message_async(sid, lambda x: True, timeout)
+    except TimeoutError as e:
+        print("TimeoutError: {0}".format(str(e)))
+        msg = "timed out waiting for result after {0}seconds.".format(str(timeout))
+        return web.json_response({"error": msg}, status=400)
+
+    if "error" in result:
+        error = result.get("error")
+        cancelled = "cancelled" in str(error).lower()
+        return web.json_response({"error": error, "cancelled": cancelled}, status=400)
+
+    if "workflow" not in result:
+        return web.json_response({"error": "missing workflow"}, status=400)
+
+    workflow = result.get("workflow")
+    print(" received workflow: " + str(workflow) + " value.")
+
+    return web.json_response({
+        "workflow": workflow
+    })
 
 
 @routes.post("/flyingshapes/extra-data")
@@ -97,12 +181,12 @@ async def provide_input_value(request: Request):
                 pass
             was_handled = True
 
-    response = {"message": "provided node input data from FS to comfyUi", "consumed": was_handled}
+    response = {"message": "provided input data from FS to comfyUi", "consumed": was_handled}
     return web.json_response(response)
 
 
 @routes.post("/flyingshapes/fs-connection")
-async def push_workflow(request: Request):
+async def fs_connection(request: Request):
     json_data = await request.json()
     user_id = json_data.get("userId", None)
     if user_id is None:

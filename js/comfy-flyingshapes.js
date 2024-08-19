@@ -231,8 +231,8 @@ app.registerExtension({
         }
 
         let order = 50
-        const fsVrLabel = $el("span", {}, ["Fs VR"])
-        const fsWebLabel = $el("span", {}, ["Fs Web"])
+        const fsVrLabel = $el("span", {}, ["FS VR"])
+        const fsWebLabel = $el("span", {}, ["FS Web"])
         const connectedDisplayEl = $el("span", {
             className: "connection-bubble vr",
         })

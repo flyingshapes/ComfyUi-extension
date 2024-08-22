@@ -4,6 +4,7 @@ from .imgUtil import *
 
 from server import PromptServer
 from aiohttp.web import WebSocketResponse
+import comfy.model_management
 import comfy.utils
 import torch
 import time
@@ -13,6 +14,7 @@ class FsInputNode:
     FUNCTION = "receive_value"
     OUTPUT_NODE = False
     FS_CLASS_LABEL = None
+    CATEGORY = "flyingshapes"
 
     def class_name(self):
         return type(self).__name__
@@ -20,8 +22,13 @@ class FsInputNode:
     def IS_CHANGED(self, **kwargs):
         return float("NaN")  # time.time()
 
-    def process_value(self, value: str | None):
+    def process_value(self, value: str | None, **kwargs):
         return (value,)
+
+    def process_value_required(self, value: str | None, value_required: bool, **kwargs):
+        if value is None and value_required:
+            raise Exception(self.class_name() + ": Missing stored value")
+        return self.process_value(value, **kwargs)
 
     def fs_request_data(self, **kwargs):
         return {
@@ -35,6 +42,9 @@ class FsInputNode:
     def fs_request_message_type(self, **kwargs):
         return "flyingshapes_request"
 
+    def value_required(self, **kwargs) -> bool:
+        return True
+
     def receive_value(self, **kwargs):
         stored_value: str | None = kwargs.get("stored_value", None)
         server: PromptServer = PromptServer.instance
@@ -42,21 +52,20 @@ class FsInputNode:
         is_fs = is_fs_id(client_id)
 
         fs_data = FlyingShapes_extra_data.get(client_id, None)
+        value_required = self.value_required(**kwargs)
 
         if is_fs:
-            if stored_value is None:
-                raise Exception(self.class_name()+": Missing stored value")
-            return self.process_value(stored_value)
+            return self.process_value_required(stored_value, value_required, **kwargs)
 
         err = "Prompt not sent from Flyingshapes and: "
         if fs_data is None:
             # raise Exception(err + "fs_data is None.")
             print(err + "fs_data is None.")
-            return self.process_value(stored_value)
+            return self.process_value_required(stored_value, value_required, **kwargs)
 
         use_fs_input = fs_data.get("inputFromFs", None)
         if not use_fs_input:
-            return self.process_value(stored_value)
+            return self.process_value_required(stored_value, value_required, **kwargs)
 
         user_id: str | None = fs_data.get("userId", None)
         timeout = fs_data.get("timeout", None)
@@ -83,12 +92,15 @@ class FsInputNode:
             raise Exception(msg)
 
         if "value" not in result:
-            raise Exception("Missing value in result")
-        value = result.get("value")
+            if value_required:
+                raise Exception("Missing value in result")
+            print(self.class_name() + " received no value (None).")
+            value = None
+        else:
+            value = result.get("value")
+            print(self.class_name() + " received " + str(type(value)) + " value.")
 
-        print(self.class_name()+" received " + str(type(value)) + " value.")
-
-        return self.process_value(value)
+        return self.process_value(value, **kwargs)
 
 
 class InputSlider(FsInputNode):
@@ -106,7 +118,6 @@ class InputSlider(FsInputNode):
 
     RETURN_TYPES = ("FLOAT",)
     RETURN_NAMES = ("Slider Value (FLOAT)",)
-    CATEGORY = "flyingshapes"
     FS_CLASS_LABEL = "Slider"
 
 
@@ -124,58 +135,79 @@ class InputText(FsInputNode):
 
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("Text (STRING)",)
-    CATEGORY = "flyingshapes"
     FS_CLASS_LABEL = "Text"
 
 
 class InputStyle(FsInputNode):
+    def __init__(self):
+        self.device = comfy.model_management.intermediate_device()
+
     @classmethod
     def INPUT_TYPES(s):
         return {
             "required": {
-                "style": ("STRING", {"default": "sketch"}),
                 "order": ("INT", {"default": 1, "min": 0, }),
                 "stored_value": ("STRING", {"default": empty_base64_image, }),
             },
+            "optional": {
+                "style_name": ("STRING", { "defaultInput": True, "placeholder": "using style selected in client" }),
+                "fallback_style": ("IMAGE",),
+                "weight": ("FLOAT", { "defaultInput": True, "min": -1, "max": 3, "step": 0.05 }),
+            }
         }
 
-    RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE",)
-    RETURN_NAMES = ("style", "image0", "image1",)
-    CATEGORY = "flyingshapes"
+    RETURN_TYPES = ("IMAGE", "FLOAT",)
+    RETURN_NAMES = ("style", "weight",)
     FS_CLASS_LABEL = "Style"
 
-    def process_value(self, value):
-        img_strs = value.split('.')
-        try:
-            all_imgs = [
-                img_from_base64(imgStr)
-                for imgStr in img_strs
+    def process_value(self, value, fallback_style = None, weight = None, **kwargs):
+        weight_out = weight if weight is not None else 1
+
+        if value is None:
+            size = 512
+            if fallback_style is not None:
+                result = fallback_style
+            else:
+                result = torch.zeros([1, size // 8, size // 8, 3], device=self.device)
+            weight_out = 0
+        else:
+            img_strs = value.split('.')
+            try:
+                all_imgs = [
+                    img_from_base64(imgStr)
+                    for imgStr in img_strs
+                ]
+                img0 = all_imgs[0]
+            except Exception as e:
+                raise ValueError(f"Could not read base64 image-data.\n{str(e)}")
+
+            if len(all_imgs) < 1:
+                print("Style input is only a single image")
+                return img0, weight_out,
+
+            img_rest = [
+                comfy.utils.common_upscale(img.movedim(-1,1), img0.shape[2], img0.shape[1], "bilinear", "center").movedim(1,-1)
+                if img0.shape[1:] != img.shape[1:]
+                else img
+                for img in all_imgs[1:]
             ]
-            img0 = all_imgs[0]
-        except Exception as e:
-            raise ValueError(f"Could not read base64 image-data.\n{str(e)}")
 
-        if len(all_imgs) < 1:
-            print("Style input is only a single image")
-            return (img0,)
+            result = torch.cat([img0]+img_rest, dim=0)
 
-        img_rest = [
-            comfy.utils.common_upscale(img.movedim(-1,1), img0.shape[2], img0.shape[1], "bilinear", "center").movedim(1,-1)
-            if img0.shape[1:] != img.shape[1:]
-            else img
-            for img in all_imgs[1:]
-        ]
+        return result, weight_out,
 
-        result = torch.cat([img0]+img_rest, dim=0)
+    def value_required(self, **kwargs) -> bool:
+        return False
 
-        return result, img0, all_imgs[1] if len(all_imgs) > 1 else img0,
+    def fs_request_data(self, style_name: str | None = None, **kwargs):
+        result = {}
+        if style_name is not None and len(style_name) > 0:
+            result["style"] = style_name
+        return result
 
-    def fs_request_data(self, style: str | None = None, **kwargs):
-        if style is None:
-            raise ValueError("missing style field")
-        return {
-            "style": style,
-        }
+    def fs_response_test(self, **kwargs) -> ReceiveFilterOrDict:
+        return lambda r: isinstance(r, dict) and isinstance(r.get("style", ""), str)
+
 
     def fs_request_message_type(self, **kwargs):
         return "flyingshapes_request_style"
@@ -197,10 +229,9 @@ class InputScreenShot(FsInputNode):
 
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("Screenshot (IMAGE)",)
-    CATEGORY = "flyingshapes"
     FS_CLASS_LABEL = "Image"
 
-    def process_value(self, value):
+    def process_value(self, value, **kwargs):
         img = img_from_base64(value)
         # return (img, mask)
         return (img,)
@@ -235,7 +266,6 @@ class InputSettings(FsInputNode):
 
     RETURN_TYPES = ("INT",)
     RETURN_NAMES = ("batch_size",)
-    CATEGORY = "flyingshapes"
     FS_CLASS_LABEL = "Settings"
 
 
@@ -252,7 +282,6 @@ class OutputImages:
     RETURN_TYPES = ()
     FUNCTION = "save_images"
     OUTPUT_NODE = True
-    CATEGORY = "flyingshapes"
 
     def save_images(self, images, **kwargs):
         pbar = comfy.utils.ProgressBar(images.shape[0])

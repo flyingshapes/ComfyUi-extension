@@ -147,9 +147,9 @@ class InputStyle(FsInputNode):
         return {
             "required": {
                 "order": ("INT", {"default": 1, "min": 0, }),
-                "stored_value": ("STRING", {"default": empty_base64_image, }),
             },
             "optional": {
+                "stored_value": ("STRING", { "defaultInput": True, "default": empty_base64_image, }),
                 "style_name": ("STRING", { "defaultInput": True, "placeholder": "using style selected in client" }),
                 "fallback_style": ("IMAGE",),
                 "weight": ("FLOAT", { "defaultInput": True, "min": -1, "max": 3, "step": 0.05 }),

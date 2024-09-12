@@ -214,7 +214,7 @@ class InputStyle(FsInputNode):
 
 
 class InputScreenShot(FsInputNode):
-    screenshot_types = ["default", "depth", "normal", "sketch"]
+    screenshot_types = ["default", "depth", "normal", "sketch", "mask"]
 
     @classmethod
     def INPUT_TYPES(s):

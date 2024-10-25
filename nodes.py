@@ -1,3 +1,5 @@
+import json
+
 from .dataReceiver import *
 from .common import *
 from .imgUtil import *
@@ -19,7 +21,8 @@ class FsInputNode:
     def class_name(self):
         return type(self).__name__
 
-    def IS_CHANGED(self, **kwargs):
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
         return float("NaN")  # time.time()
 
     def process_value(self, value: str | None, **kwargs):
@@ -84,6 +87,7 @@ class FsInputNode:
         server.send_sync(request_message_type, request_data, fs_sid)
 
         print("sent " + request_message_type + " message, waiting for result")
+        print(json.dumps(request_data))
         try:
             result = node_receive_message(fs_sid, response_test, timeout)
         except TimeoutError as e:
@@ -294,5 +298,6 @@ class OutputImages:
 
         return {}
 
-    def IS_CHANGED(s, images):
+    @classmethod
+    def IS_CHANGED(cls, images, **kwargs):
         return time.time()

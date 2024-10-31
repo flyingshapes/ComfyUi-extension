@@ -2,4 +2,4 @@
 /models/*.bin
 /models/*.safetensors
 .directory
-version.yml
+version*.yml

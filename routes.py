@@ -203,3 +203,8 @@ async def fs_connection(request: Request):
         "connected": False if sock is None else True,
         "connectedWeb": False if sockWeb is None else True,
     })
+
+
+@routes.get("/flyingshapes/version")
+async def fs_version(request: Request):
+    return web.json_response(FsVersionInfo.data)

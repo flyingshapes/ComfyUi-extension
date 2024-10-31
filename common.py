@@ -1,6 +1,8 @@
 import typing
 import asyncio
 import re
+import yaml
+from os import path
 
 ReceiveTest = typing.Callable[[typing.Any], bool]
 ReceiveFilter: typing.TypeAlias = ReceiveTest | typing.FrozenSet[tuple[str, typing.Any]]
@@ -36,3 +38,33 @@ def to_snake_case(name: str) -> str:
     name = re.sub('__([A-Z])', r'_\1', name)
     name = re.sub('([a-z0-9])([A-Z])', r'\1_\2', name)
     return name  # .lower()
+
+FsVersionYamlType = typing.Dict[str, typing.Dict[str, str]]
+def_version_file = path.join(path.dirname(__file__), 'version.yml')
+class FsVersionInfo:
+    git_hash = "local"
+    sem_ver = "1.0.0"
+    data: typing.Dict[str, str] = {
+        "git_hash": git_hash,
+        "sem_ver": sem_ver,
+    }
+    @classmethod
+    def load_version(cls, version_file: str = def_version_file):
+        if path.isfile(version_file):
+            with open(version_file) as stream:
+                try:
+                    content: FsVersionYamlType = yaml.safe_load(stream)
+                    print(content)
+                    fs_comfy_ui = content.get('fs_comfy_ui')
+                    if fs_comfy_ui is None:
+                        print(' missing fs_comfy_ui node in ' + version_file)
+                    else:
+                        cls.data = fs_comfy_ui
+                        cls.git_hash = fs_comfy_ui.get('git_hash')
+                        cls.sem_ver = fs_comfy_ui.get('sem_ver')
+
+                except yaml.YAMLError as exc:
+                    print(' could not read fs-version info')
+                    print(exc)
+        else:
+            print(' file ' + version_file + ' not found')

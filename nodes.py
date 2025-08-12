@@ -66,7 +66,7 @@ class FsInputNode:
             print(err + "fs_data is None.")
             return self.process_value_required(stored_value, value_required, **kwargs)
 
-        use_fs_input = fs_data.get("inputFromFs", None)
+        use_fs_input: bool | None = fs_data.get("inputFromFs", None)
         if not use_fs_input:
             return self.process_value_required(stored_value, value_required, **kwargs)
 

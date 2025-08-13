@@ -1,0 +1,176 @@
+.flyingshapes-menu {
+    position: relative;
+    margin: 12px;
+    margin-right: 36px;
+    height: 100%;
+}
+.flyingshapes-menu:before {
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    right: 0;
+
+    transform: rotate(-90deg) translateX(20px);
+    transform-origin: top right;
+
+    min-width: 200px;
+    aspect-ratio: 2;
+    /*noinspection CssUnresolvedCustomProperty*/
+    background-image: var(--fs-logo);
+    background-repeat: no-repeat;
+    background-size: 200px;
+}
+
+#fs-manager-dialog {
+    width: 480px;
+    /*height: 520px;*/
+    box-sizing: content-box;
+    z-index: 10000;
+}
+
+.fs-title {
+    /*background-color: black;*/
+    text-align: center;
+    height: 40px;
+    width: calc(100% - 10px);
+    font-weight: bold;
+    justify-content: center;
+    align-content: center;
+    vertical-align: middle;
+}
+
+.comfy-modal-content.gap {
+    gap: 20px;
+}
+
+.fs-grid {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: 125px 1fr;
+}
+
+.fs-grid input[type=checkbox] {
+    width: 32px;
+    height: 32px;
+}
+
+.fs-validation-error {
+    /*position: absolute;*/
+    /*top: -120%;*/
+    /*top: 0;*/
+    color: var(--error-text);
+    grid-column: span 2;
+    /*display: none;*/
+}
+
+.connected-display {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+}
+
+.connection-bubble {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #4e4e4e;
+}
+
+:root {
+    --success-text: var(--success-color, #52c41a)
+}
+
+.connected-display.valid:not(.connected) .connection-bubble.vr {
+    background-color: var(--error-text);
+}
+
+.connected-display.valid.connected .connection-bubble.vr {
+    background-color: var(--success-text, #0d0);
+}
+
+.connected-display.valid:not(.connected-web) .connection-bubble.web {
+    background-color: var(--error-text);
+}
+
+.connected-display.valid.connected-web .connection-bubble.web {
+    background-color: var(--success-text, #0d0);
+}
+
+/*
+@media (max-height: 800px) {
+    #crystools-root {
+        transition: height;
+        transition-duration: 300ms;
+        overflow: hidden;
+        height: 130px;
+    }
+
+    #crystools-root:not(:hover) {
+        height: 30px;
+    }
+}
+*/
+/*
+margin-bottom: -40px;
+transform: scaleY(.65) translateY(-40px);
+*/
+
+#fs-web-opened-wf {
+    display: none;
+    position: absolute;
+    top: 2px;
+    right: 190px;
+    padding: 20px;
+    background-color: rgba(0, 0, 0, .3);
+    grid-template-columns: 36px 1fr;
+    width: 240px;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+}
+
+#fs-web-opened-wf .row {
+    grid-column: 1/-1;
+}
+
+#fs-web-opened-wf .close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+}
+
+#fs-web-opened-wf button {
+    background-color: transparent;
+    color: rgba(255, 255, 255, .75);
+    border-style: none;
+}
+
+#fs-save-workflow-web {
+    border: 1px solid rgba(255, 255, 255, .75) !important;
+    border-radius: 6px;
+}
+
+#fs-web-opened-wf button:hover {
+    color: white;
+}
+
+#fs-web-opened-wf.show {
+    display: grid;
+}
+
+.fs-icon:before {
+    content: "";
+    /*noinspection CssUnresolvedCustomProperty*/
+    background-image: var(--fs-icon);
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    display: inline-block;
+    min-width: 30px;
+    min-height: 30px;
+}

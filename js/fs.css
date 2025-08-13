@@ -122,9 +122,11 @@ transform: scaleY(.65) translateY(-40px);
 
 #fs-web-opened-wf {
     display: none;
+    /*
     position: absolute;
     top: 2px;
     right: 190px;
+    */
     padding: 20px;
     background-color: rgba(0, 0, 0, .3);
     grid-template-columns: 36px 1fr;

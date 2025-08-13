@@ -33,7 +33,9 @@ async function postRequest(endPoint, data, catchErr = false, showError = true) {
 }
 
 const getExtraData = () => {
-    const {lspReset, userId, ...s} = JSON.parse(ls.getItem(storageKey)) || {}
+    const keys = Object.getOwnPropertyNames(state)
+    const data = Object.fromEntries(keys.map(k => [k, state[k]]))
+    const {lspReset, userId, ...s} = data || {}
     return {...s, userId}
 }
 

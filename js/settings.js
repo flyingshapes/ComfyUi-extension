@@ -41,27 +41,43 @@ export const triggerValidation = () => {
     }
 }
 
-
-export const settings = [
-    {
-        id: "flyingshapes.inputFromFs",
-        name: "Input from Flyingshapes",
-        type: "boolean",
-        defaultValue: true,
-    },
-    {
-        id: "flyingshapes.userId",
-        name: "FS-Web UserID",
-        type: "string",
-        defaultValue: '',
-    },
-]
+export const settings = Object.entries({
+    "flyingshapes settings": [
+        {
+            id: "flyingshapes.inputFromFs",
+            name: "Input from Flyingshapes",
+            type: "boolean",
+            defaultValue: true,
+            tooltip: "If enabled, workflows with FS input nodes request input data from flyingshapes and only work if there is a connection. Otherwise FS input nodes will use the stored_value input of the node.",
+        },
+        {
+            id: "flyingshapes.userId",
+            name: "FS-Web UserID",
+            type: "string",
+            defaultValue: '',
+            //tooltip: "Your FS-web user id. You can find it in the FS-web settings.",
+        },
+        {
+            id: "flyingshapes.timeout",
+            name: "Timeout",
+            type: "number",
+            defaultValue: 10,
+            tooltip: "Timeout in seconds for FS input nodes requests to the FS-application.",
+        },
+    ],
+}).flatMap(([section, items]) => {
+    return items.map(item => ({
+        category: ["flyingshapes", section, item.id],
+        ...item
+    }))
+}).reverse()
 
 const ls = window.localStorage
 
 export const settingsProxy = () => {
     const state = new EventTarget()
     const getProp = p => ['flyingshapes', p].join('.')
+    const getPropName = p => p.split('.').slice(1).join('.')
 
     function boundHandler(rootRef) {
         return {
@@ -90,6 +106,10 @@ export const settingsProxy = () => {
                     console.error(e)
                     return false
                 }
+            },
+            ownKeys(target) {
+                //return Reflect.ownKeys(target);
+                return settings.map(s => getPropName(s.id))
             },
             // has(obj, key) {
             //     return key in obj;

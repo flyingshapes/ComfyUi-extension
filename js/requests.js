@@ -1,3 +1,4 @@
+import {api} from "../../scripts/api.js";
 import {state, validState} from "./settings.js";
 
 /**
@@ -130,6 +131,7 @@ export async function getFsConnection(elem) {
         }
     } catch (e) {
         elem.classList.remove('connected', 'connected-web')
+        console.log(e)
     }
 }
 

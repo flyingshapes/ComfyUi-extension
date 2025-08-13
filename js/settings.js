@@ -67,6 +67,10 @@ export const settingsProxy = () => {
         return {
             get(obj, prop) {
                 const p = getProp(prop)
+                if (typeof obj[prop] === 'function' && obj === rootRef && prop !== 'constructor') {
+                    // this returns bound EventTarget functions
+                    return obj[prop].bind(obj)
+                }
                 return app.extensionManager.setting.get(p)
             },
             set(obj, prop, value) {

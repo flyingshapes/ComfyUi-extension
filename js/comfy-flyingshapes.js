@@ -3,7 +3,7 @@ import {api} from "../../scripts/api.js";
 import {ComfyDialog, $el} from "../../scripts/ui.js";
 import {loadWorkflowFromFsWeb, pushWorkflowToFs, getFsConnection, requestEditWorkflow, sendExtraData} from "./requests.js";
 import {icons} from "./fsimg.js";
-import {settings, state, addValidation} from "./settings.js";
+import {settings, state, addValidation, triggerValidation} from "./settings.js";
 import {loadCss, addCss} from "./common.js"
 
 //const basePath = 'extensions/ComfyUi-FS-extension/assets'
@@ -18,9 +18,6 @@ const style = `
 addCss(style)
 //background-image: url("${basePath}/FS-Icon-256.png");
 loadCss('./fs.css')
-
-console.log('FS 1!!!!')
-
 
 let fs_dialog_instance = null;
 export function getDialogInstance() {

@@ -39,10 +39,3 @@ async def node_receive_message_async(sid, test: common.ReceiveFilterOrDict,
 
     result = await asyncio.wait_for(future, timeout)
     return result
-
-
-# throws TimeoutError
-def node_receive_message(sid, test: common.ReceiveFilterOrDict,
-                         timeout: int | str | None = None) -> dict:
-    with asyncio.Runner() as runner:
-        return runner.run(node_receive_message_async(sid, test, timeout))

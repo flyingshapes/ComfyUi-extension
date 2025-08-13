@@ -48,7 +48,7 @@ class FsInputNode:
     def value_required(self, **kwargs) -> bool:
         return True
 
-    def receive_value(self, **kwargs):
+    async def receive_value(self, **kwargs):
         stored_value: str | None = kwargs.get("stored_value", None)
         server: PromptServer = PromptServer.instance
         client_id: str = server.client_id
@@ -89,7 +89,7 @@ class FsInputNode:
         print("sent " + request_message_type + " message, waiting for result")
         print(json.dumps(request_data))
         try:
-            result = node_receive_message(fs_sid, response_test, timeout)
+            result = await node_receive_message_async(fs_sid, response_test, timeout)
         except TimeoutError as e:
             print("TimeoutError: {0}".format(str(e)))
             msg = "{0} timed out waiting for result after {1}seconds.".format(self.class_name(), str(timeout))
@@ -265,7 +265,7 @@ class InputSettings(FsInputNode):
             },
         }
 
-    def receive_value(self, batch_size: int, **kwargs):
+    async def receive_value(self, batch_size: int, **kwargs):
         return (batch_size,)
 
     RETURN_TYPES = ("INT",)

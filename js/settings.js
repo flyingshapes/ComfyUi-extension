@@ -64,6 +64,11 @@ export const settings = Object.entries({
             defaultValue: 10,
             tooltip: "Timeout in seconds for FS input nodes requests to the FS-application.",
         },
+        {
+            id: "flyingshapes.fsWebWorkflow",
+            type: "hidden",
+            defaultValue: null,
+        },
     ],
 }).flatMap(([section, items]) => {
     return items.map(item => ({
@@ -71,6 +76,8 @@ export const settings = Object.entries({
         ...item
     }))
 }).reverse()
+
+const settingsDecl = Object.fromEntries(settings.map(s => [s.id, s]))
 
 const ls = window.localStorage
 
@@ -82,15 +89,29 @@ export const settingsProxy = () => {
     function boundHandler(rootRef) {
         return {
             get(obj, prop) {
-                const p = getProp(prop)
                 if (typeof obj[prop] === 'function' && obj === rootRef && prop !== 'constructor') {
                     // this returns bound EventTarget functions
                     return obj[prop].bind(obj)
                 }
-                return app.extensionManager.setting.get(p)
+                const p = getProp(prop)
+                let  result = app.extensionManager.setting.get(p)
+                if (p in settingsDecl) {
+                    const decl = settingsDecl[p]
+                    if (decl.type === 'hidden') {
+                        result = JSON.parse(result)
+                    }
+                } else console.warn(`unknown property: ${p}. got value:`, result)
+                return result
             },
             set(obj, prop, value) {
                 const p = getProp(prop)
+                if (p in settingsDecl) {
+                    const decl = settingsDecl[p]
+                    if (decl.type === 'hidden' && typeof value !== 'string') {
+                        value = JSON.stringify(value)
+                    }
+                } else console.warn(`setting unknown property: ${p}.`)
+
 
                 try {
                     app.extensionManager.setting.set(p, value)
@@ -100,7 +121,7 @@ export const settingsProxy = () => {
                         }
                     }
                     rootRef.dispatchEvent(new CustomEvent('update', evData))
-                    rootRef.dispatchEvent(new CustomEvent(`update:${prop}`, evData))
+                    rootRef.dispatchEvent(new CustomEvent(`update:${p}`, evData))
                     return true
                 } catch (e) {
                     console.error(e)

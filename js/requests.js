@@ -95,7 +95,7 @@ export async function requestEditWorkflow() {
 
         state.fsWebWorkflow = {id, name, description, updatedAt}
         app.ui.dialog.show(`Opened workflow '${name}' from FS Web. Description: "${description}"`);
-        await app.loadGraphData(graphUi);
+        await app.loadGraphData(graphUi, false, true, name);
     } catch (e) {
         if (e.cancelled) {
             app.ui.dialog.show("The request to open a workflow was declined from FS Web.");
@@ -163,7 +163,7 @@ export async function loadWorkflowFromFsWeb({ detail: { id, name, apiWorkflow, o
     state.fsWebWorkflow = {id, name}
 
     if (originalWorkflow) {
-        await app.loadGraphData(originalWorkflow);
+        await app.loadGraphData(originalWorkflow, false, true, name);
     } else if (app.isApiJson(apiWorkflow)) {
         app.loadApiJson(apiWorkflow);
     } else {

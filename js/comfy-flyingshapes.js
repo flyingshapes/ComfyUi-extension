@@ -141,9 +141,22 @@ app.registerExtension({
 
         const makeEl = (...args) => {
             const elem = $el(...args)
-            elem.style.order = order++
+            //elem.style.order = order++
             menu.append(elem)
             return elem
+        }
+
+        const makeGrid = ({cols, gap, class: cls}, ...args) => {
+            let className = 'fs-grid all-cols'
+            if (cls) className += ` ${cls}`
+            const el = makeEl("div", {
+                className,
+            }, args)
+
+            if (cols) el.style.setProperty('--fs-grid-cols', cols)
+            if (gap) el.style.setProperty('--fs-gap', gap)
+
+            return el
         }
 
         connectedDisplayParent = makeEl("div", {
@@ -151,7 +164,7 @@ app.registerExtension({
                 order: order++,
                 margin: "10px 0",
             },
-            className: "connected-display"
+            className: "connected-display all-cols"
         }, [fsVrLabel, connectedDisplayEl, fsWebLabel, connectedDisplayElWeb/*, settingsIcon*/])
 
         fsButtons.requestWebWorkflow = makeEl("button", {
@@ -176,10 +189,22 @@ app.registerExtension({
             "save (FS web)"
         ])
 
+        makeGrid({cols: '125px 1fr'},
+            //...createInput("userId", "User Id"),
+            ...createInput("inputFromFs", "Input from FS?", "checkbox")
+        )
+
+        //makeEl('div', {}, createInput("userId", "User Id"))
+        //makeEl('div', {}, createInput("inputFromFs", "Input from FS?", "checkbox"))
+        //const user_id = createInput("userId", "User Id")
+        //const inputFromFs = createInput("inputFromFs", "Input from FS?", "checkbox")
+        //menu.append(...user_id, ...inputFromFs)
+
+
         clearInterval(connectedInterval)
         triggerValidation()
         connectedInterval = setInterval(() => getFsConnection(connectedDisplayParent), 2500)
-        addValidation('userId', getFsConnection)
+        addValidation('userId', () => getFsConnection(connectedDisplayParent))
 
         const {flat, vals: {nameVel, descVel, updVel}} = makeEls({
             name: "workflow-name",
@@ -320,7 +345,11 @@ function createInput(id0, label, inputType = "text", wrapDiv = false) {
         onkeyup: update,
         onchange: update
     }, [])
-    input_el[attr] = state[id0]
+    const readFromSettings = () => {
+        input_el[attr] = state[id0]
+    }
+    state.addEventListener(`update:${id0}`, readFromSettings)
+    readFromSettings()
 
     const input_el_text = $el("label", {for: id}, [label])
     input_el_text.style.color = "var(--fg-color)";

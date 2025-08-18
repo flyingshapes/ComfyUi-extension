@@ -1,4 +1,5 @@
 import {app} from "../../scripts/app.js";
+import {sleep} from "./common.js";
 
 const initialState = {
     server: 'https://staging-api.viuport.design',
@@ -41,31 +42,33 @@ export const triggerValidation = () => {
     }
 }
 
+const getFullPropId = p => ['flyingshapes', p].join('.')
+
 export const settings = Object.entries({
     "flyingshapes settings": [
         {
-            id: "flyingshapes.inputFromFs",
+            id: "inputFromFs",
             name: "Input from Flyingshapes",
             type: "boolean",
             defaultValue: true,
             tooltip: "If enabled, workflows with FS input nodes request input data from flyingshapes and only work if there is a connection. Otherwise FS input nodes will use the stored_value input of the node.",
         },
         {
-            id: "flyingshapes.userId",
+            id: "userId",
             name: "FS-Web UserID",
             type: "string",
             defaultValue: '',
             //tooltip: "Your FS-web user id. You can find it in the FS-web settings.",
         },
         {
-            id: "flyingshapes.timeout",
+            id: "timeout",
             name: "Timeout",
             type: "number",
             defaultValue: 10,
             tooltip: "Timeout in seconds for FS input nodes requests to the FS-application.",
         },
         {
-            id: "flyingshapes.fsWebWorkflow",
+            id: "fsWebWorkflow",
             type: "hidden",
             defaultValue: null,
         },
@@ -73,7 +76,22 @@ export const settings = Object.entries({
 }).flatMap(([section, items]) => {
     return items.map(item => ({
         category: ["flyingshapes", section, item.id],
-        ...item
+        onChange: async (value, oldValue) => {
+            console.warn('changing', item.id)
+            const evData = {
+                detail: {
+                    prop: item.id,
+                    value,
+                    oldValue
+                }
+            }
+            await sleep(10)
+
+            state?.dispatchEvent(new CustomEvent('update', evData))
+            state?.dispatchEvent(new CustomEvent(`update:${item.id}`, evData))
+        },
+        ...item,
+        id: getFullPropId(item.id),
     }))
 }).reverse()
 
@@ -115,13 +133,6 @@ export const settingsProxy = () => {
 
                 try {
                     app.extensionManager.setting.set(p, value)
-                    const evData = {
-                        detail: {
-                            prop, value
-                        }
-                    }
-                    rootRef.dispatchEvent(new CustomEvent('update', evData))
-                    rootRef.dispatchEvent(new CustomEvent(`update:${p}`, evData))
                     return true
                 } catch (e) {
                     console.error(e)

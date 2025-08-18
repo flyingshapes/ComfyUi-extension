@@ -1,8 +1,17 @@
 .flyingshapes-menu {
     position: relative;
+
     margin: 12px;
     margin-right: 36px;
     height: 100%;
+
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    /*
+    gap: 8px;
+    */
 }
 .flyingshapes-menu:before {
     content: "";
@@ -45,10 +54,19 @@
     gap: 20px;
 }
 
+/*noinspection ALL*/
 .fs-grid {
+    /*
     display: grid;
     gap: 8px;
     grid-template-columns: 125px 1fr;
+    */
+    display: grid;
+    grid-template-columns: var(--fs-grid-cols, 125px 1fr);
+    gap: var(--fs-grid-gap, 8px);
+    align-items: center;
+    justify-content: center;
+
 }
 
 .fs-grid input[type=checkbox] {
@@ -71,6 +89,10 @@
     gap: 6px;
     align-items: center;
     justify-content: center;
+}
+.all-cols {
+    grid-column: 1 / -1;
+    width: 100%;
 }
 
 .connection-bubble {
@@ -121,6 +143,7 @@ transform: scaleY(.65) translateY(-40px);
 */
 
 #fs-web-opened-wf {
+    position: relative;
     display: none;
     /*
     position: absolute;

@@ -269,7 +269,7 @@ class InputScreenShot(FsInputNode):
         if not isinstance(response, dict):
             raise Exception("response is not a dict")
         type = response.get("type", "")
-        if not isinstance(type in self.screenshot_types):
+        if not (type in self.screenshot_types):
             raise Exception(f"response.type is {type}, but should be one of {self.screenshot_types}")
 
     def fs_request_message_type(self, **kwargs):

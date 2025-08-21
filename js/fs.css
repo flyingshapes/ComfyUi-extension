@@ -38,26 +38,56 @@
 }
 
 #fs-manager-dialog {
-    width: 640px;
+    width: 720px;
     /*height: 520px;*/
     box-sizing: content-box;
     z-index: 10000;
 }
 
+#fs-manager-dialog div {
+    color: var(--w75);
+}
+
 #fs-manager-dialog div.hd {
+    margin-top: 16px;
+    margin-bottom: 4px;
     font-weight: bold;
     font-size: 110%;
 }
+#fs-manager-dialog div.hd div {
+    color: #aaf;
+    /*var(--error-text)*/
+}
 
 #fs-manager-dialog div.x {
-    color: var(--w75) !important;
+    border-radius: 4px;
+    padding: 4px;
 }
-#fs-manager-dialog div.x:not(.active):hover {
+
+#fs-manager-dialog div.x div.trash {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+#fs-manager-dialog div.x.active div.trash {
+    display: none;
+}
+#fs-manager-dialog div.x div.trash:hover {
+    color: var(--error-text);
     background-color: var(--w20);
 }
+
+
+#fs-manager-dialog div.x:not(.active):hover {
+    background-color: var(--w20);
+    cursor: pointer;
+}
 #fs-manager-dialog div.x.active {
-    color: var(--b75) !important;
+    color: var(--b75);
     background-color: var(--w75);
+}
+#fs-manager-dialog div.x.active div {
+    color: var(--b75);
 }
 
 .fs-title {

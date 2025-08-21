@@ -1,5 +1,6 @@
 import {api} from "../../scripts/api.js";
 import {mutateState, state, validState} from "./settings.js";
+import {FsDialog} from "./fsDialog.js";
 
 /**
  *
@@ -111,7 +112,7 @@ export async function requestEditWorkflow() {
 
 export async function requestFsWebUserId() {
     const {userId} = state
-    const data = {userId}
+    const data = {userId, timeout: 30}
 
     try {
         const result = await postRequest("request-fs-web-user-id", data, false, false)
@@ -132,6 +133,8 @@ export async function requestFsWebUserId() {
             if (existing) {
                 Object.assign(existing, fsUser)
             } else arr.push(fsUser)
+
+            FsDialog.instance.show()
         })
     } catch (e) {
         console.error(e)

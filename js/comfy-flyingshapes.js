@@ -1,6 +1,6 @@
 import {app} from "../../scripts/app.js";
 import {api} from "../../scripts/api.js";
-import {ComfyDialog, $el} from "../../scripts/ui.js";
+import {$el} from "../../scripts/ui.js";
 import {
     loadWorkflowFromFsWeb, pushWorkflowToFs, getFsConnection, requestEditWorkflow, sendExtraData,
     requestFsWebUserId
@@ -8,6 +8,7 @@ import {
 import {icons} from "./fsimg.js";
 import {settings, state, addValidation, triggerValidation} from "./settings.js";
 import {loadCss, addCss} from "./common.js"
+import {FsDialog} from "./fsDialog.js";
 
 //const basePath = 'extensions/ComfyUi-FS-extension/assets'
 
@@ -22,12 +23,6 @@ addCss(style)
 //background-image: url("${basePath}/FS-Icon-256.png");
 loadCss('./fs.css')
 
-let fs_dialog_instance = null;
-export function getDialogInstance() {
-    if (!fs_dialog_instance) fs_dialog_instance = new FsDialog()
-    //console.log(fs_dialog_instance)
-    return fs_dialog_instance
-}
 const emptyImage = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
 
 let fsButtons = {
@@ -137,7 +132,7 @@ app.registerExtension({
                     className: "comfy-btn fs-settings-button",
                     onclick: e => {
                         e.stopPropagation()
-                        getDialogInstance().show()
+                        FsDialog.instance.show()
                         triggerValidation()
                     }
                 }, [
@@ -270,7 +265,7 @@ app.registerExtension({
         })
 
         const updateOptions = e => {
-            getDialogInstance().updateOptions()
+            FsDialog.instance.updateOptions()
         }
 
         state.addEventListener('update:fsInstances', updateOptions)
@@ -418,101 +413,6 @@ if (!ls) {
 }
 
 state.addEventListener('update', triggerValidation)
-
-class FsDialog extends ComfyDialog {
-    constructor() {
-        super();
-        const close_button = $el("button", {
-            id: "fs-close-button",
-            type: "button",
-            textContent: "Close",
-            onclick: () => this.close()
-        });
-        this.userIdEl = $el("div.subgrid-cols", {})
-        this.optionsGrid = $el("div.fs-grid", {}, [
-            this.userIdEl,
-            $el('div', {className: 'hd subgrid-cols'}, [
-                $el('div', ['Domain']),
-                $el('div', ['User'])
-            ]),
-        ])
-        this.optionsGrid.style.setProperty('--fs-grid-cols', '360px 1fr')
-        const content =
-            $el("div.comfy-modal-content.gap",
-                [
-                    $el("tr.fs-title", {}, [
-                        $el("font", {size: 6, color: "white"}, [`Flyingshapes Connection`])]
-                    ),
-                    this.optionsGrid,
-
-                    close_button,
-                ]
-            );
-
-        content.style.width = '100%';
-        content.style.height = '100%';
-
-        this.updateOptions()
-
-        this.element = $el("div.comfy-modal", {id: 'fs-manager-dialog', parent: document.body}, [content]);
-    }
-
-    updateOptions() {
-        const {optionsGrid} = this
-        const {fsInstances, userId} = state
-
-        while (optionsGrid.children.length > 2) {
-            optionsGrid.removeChild(optionsGrid.lastChild)
-        }
-
-        this.userIdEl.innerText = userId
-
-        for (const [domain, users] of Object.entries(fsInstances)) {
-            for (const {id, email} of users) {
-                const classNames = ['subgrid-cols x']
-                if (id === userId) classNames.push('active')
-                const className = classNames.join(' ')
-                const domEl = $el('div', {}, [domain.replace(/https?:\/\//, '')])
-                const usrEl = $el('div', {}, [email])
-                const el = $el('div', {
-                    className,
-                    onclick: () => {
-                        state.userId = id
-                        //this.close()
-                    }
-                }, [domEl, usrEl])
-                optionsGrid.appendChild(el)
-            }
-        }
-
-        // const options = {
-        //     server: state.server,
-        //     userId: state.userId,
-        //     timeout: state.timeout,
-        //     askName: state.askName,
-        //     inputFromFs: state.inputFromFs,
-        // }
-        // this.options = options
-    }
-
-    createControls() {
-        this.updateOptions()
-        // const server_input = createInput("server", "Server")
-        // const user_id = createInput("userId", "User Id")
-        // const timeout = createInput("timeout", "Timeout (s)", "number")
-        // const askName = createInput("askName", "Ask for name?", "checkbox")
-        // const inputFromFs = createInput("inputFromFs", "Input from FS?", "checkbox")
-
-
-        return [
-            //...server_input,
-            // ...user_id,
-            // ...timeout,
-            // ...askName,
-            // ...inputFromFs,
-        ]
-    }
-}
 
 const loadWorkflowFromFsWebEvent = 'fs-api-load-workflow'
 api.addEventListener(loadWorkflowFromFsWebEvent, loadWorkflowFromFsWeb)

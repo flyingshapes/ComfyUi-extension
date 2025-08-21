@@ -108,7 +108,7 @@ class FsInputNode:
             msg = "{0} timed out waiting for result after {1}seconds.".format(self.class_name(), str(timeout))
             raise Exception(msg)
 
-        self.fs_response_test(**kwargs)
+        self.fs_response_test(result, **kwargs)
 
         if "value" not in result:
             if value_required:

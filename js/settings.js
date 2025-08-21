@@ -72,6 +72,11 @@ export const settings = Object.entries({
             type: "hidden",
             defaultValue: null,
         },
+        {
+            id: "fsInstances",
+            type: "hidden",
+            defaultValue: "{}",
+        },
     ],
 }).flatMap(([section, items]) => {
     return items.map(item => ({
@@ -245,6 +250,11 @@ export const storageProxy = (name, opts = {}) => {
 }
 
 export const state = settingsProxy()
+export const mutateState = (key, fn) => {
+    const value = state[key]
+    fn(value)
+    state[key] = value
+}
 /*
 storageProxy(storageKey, {
     defaults: initialState,

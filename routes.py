@@ -1,32 +1,22 @@
-from server import PromptServer
 from execution import validate_prompt
 from aiohttp import web
 from aiohttp.web import WebSocketResponse
 from aiohttp.web_request import Request
-from .common import *
-from . import dataReceiver
+from .dataReceiver import *
+from .validation import Validation
 
 routes: web.RouteTableDef = PromptServer.instance.routes
 
-
 @routes.post("/flyingshapes/push-workflow")
 async def push_workflow(request: Request):
-    json_data = await request.json()
-    name = json_data.get("name", None)
-    workflow = json_data.get("workflow", None)
-    workflow_ui = json_data.get("workflow_ui", None)
-    change_message = json_data.get("change_message", None)
-    client_id: str = json_data.get("clientId", None) #server.client_id
-    workflow_id = json_data.get("id", None)
+    v = await Validation.get(request)
+    name = v.validate("name", str, None)
+    workflow = v.validate("workflow", dict)
+    workflow_ui = v.validate("workflow_ui", dict, None)
+    change_message = v.validate("change_message", str, None)
+    client_id = v.validate("clientId", str) #server.client_id
+    workflow_id = v.validate("id", str)
 
-    if workflow_id is None:
-        return web.json_response({"error": "missing workflow id"}, status=400)
-
-    if workflow is None:
-        return web.json_response({"error": "missing workflow"}, status=400)
-
-    if client_id is None:
-        return web.json_response({"error": "missing client_id."}, status=400)
 
     server: PromptServer = PromptServer.instance
 
@@ -35,12 +25,10 @@ async def push_workflow(request: Request):
         # pass
         return web.json_response({"error": "workflow supposed to be sent from web ui."}, status=400)
 
-    user_id = json_data.get("userId", None)
-    if user_id is None:
-        return web.json_response({"error": "missing UserId"}, status=400)
+    user_id = v.validate("userId", str)
 
     sid_prefixes = []
-    sid_prefix = json_data.get("fs_id_prefix", None)
+    sid_prefix: str | None = v.data.get("fs_id_prefix", None)
     if sid_prefix is not None:
         sid_prefixes.append(sid_prefix)
 
@@ -72,21 +60,16 @@ async def push_workflow(request: Request):
 
 @routes.post("/flyingshapes/request-workflow-edit")
 async def request_workflow_edit(request: Request):
-    json_data = await request.json()
-    name = json_data.get("name", None)
-    timeout = json_data.get("timeout", None)
-    client_id: str = json_data.get("clientId", None) #server.client_id
-    user_id = json_data.get("userId", None)
-    workflow_id = json_data.get("id", None)
+    v = await Validation.get(request)
+    name = v.validate("name", str, None)
+    timeout = v.validate("timeout", int, None)
+    client_id = v.validate("clientId", str) #server.client_id
+    user_id = v.validate("userId", str)
+    workflow_id = v.validate("id", dict, None)
     # workflow = json_data.get("workflow", None)
     # workflow_ui = json_data.get("workflow_ui", None)
     # if workflow is None:
     #     return web.json_response({"error": "missing workflow"}, status=400)
-
-    if client_id is None:
-        return web.json_response({"error": "missing client_id."}, status=400)
-    if user_id is None:
-        return web.json_response({"error": "missing UserId"}, status=400)
 
     is_fs = is_fs_id(client_id)
     if is_fs:
@@ -101,24 +84,20 @@ async def request_workflow_edit(request: Request):
         return web.json_response({"error": "no socket connection for '" + sid}, status=400)
 
     print("requesting workflow from FS-Web!")
-
-    server.send_sync("flyingshapes_workflow_edit_request", {
+    request_data = {
         "name": name,
         "id": workflow_id,
         "comfyClientId": client_id,
-    }, sid)
+    }
 
-    try:
-        result = await dataReceiver.node_receive_message_async(sid, lambda x: True, timeout)
-    except TimeoutError as e:
-        print("TimeoutError: {0}".format(str(e)))
-        msg = "timed out waiting for result after {0}seconds.".format(str(timeout))
-        return web.json_response({"error": msg}, status=400)
-
-    if "error" in result:
-        error = result.get("error")
-        cancelled = "cancelled" in str(error).lower()
-        return web.json_response({"error": error, "cancelled": cancelled}, status=400)
+    result = await fs_request_value("flyingshapes_workflow_edit_request", sid, request_data, timeout)
+    # try:
+    # except TimeoutError as e:
+    #     print("TimeoutError: {0}".format(str(e)))
+    #     msg = "timed out waiting for result after {0}seconds.".format(str(timeout))
+    #     return web.json_response({"error": msg}, status=400)
+    # except ResponseError as e:
+    #     return e.response()
 
     if "workflow" not in result:
         return web.json_response({"error": "missing workflow"}, status=400)
@@ -131,19 +110,50 @@ async def request_workflow_edit(request: Request):
     })
 
 
+@routes.post("/flyingshapes/request-fs-web-user-id")
+async def request_fs_web_user_id(request: Request):
+    v = await Validation.get(request)
+    timeout = v.validate("timeout", int, None)
+    client_id = v.validate("clientId", str)
+
+    is_fs = is_fs_id(client_id)
+    if is_fs:
+        return web.json_response({"error": "edit-request is supposed to be sent from web ui."}, status=400)
+
+    print("requesting fs uuid from FS-Web!")
+
+    request_data = {
+        "comfyClientId": client_id,
+    }
+    result = await fs_request_value("flyingshapes_workflow_fsUserId_request", is_fs_web_id, request_data, timeout)
+    # try:
+    #     #result = await node_receive_message_async(timeout=timeout)
+    # except TimeoutError as e:
+    #     print("TimeoutError: {0}".format(str(e)))
+    #     msg = "timed out waiting for result after {0}seconds.".format(str(timeout))
+    #     return web.json_response({"error": msg}, status=400)
+    # except NoSocketsError:
+    #     return web.json_response({"error": "no fs-web socket connection'"}, status=400)
+    # except ResponseError as e:
+    #     return e.response()
+
+    if "error" in result:
+        error = result.get("error")
+        cancelled = "cancelled" in str(error).lower()
+        return web.json_response({"error": error, "cancelled": cancelled}, status=400)
+
+    if "fsUser" not in result:
+        return web.json_response({"error": "missing fsUser"}, status=400)
+
+    return web.json_response(result)
+
+
 @routes.post("/flyingshapes/extra-data")
 async def set_extra_data(request: Request):
-    json_data = await request.json()
-    data = json_data.get("extraData", None)
-    client_id = json_data.get("clientId", None)
-    #user_id = json_data.get("userId", None)
-    if data is None:
-        return web.json_response({"error": "missing extraData"}, status=400)
-    if client_id is None:
-        return web.json_response({"error": "missing clientId"}, status=400)
-    if not isinstance(data, dict):
-        return web.json_response({"error": "data must be a dictionary"}, status=400)
-
+    v = await Validation.get(request)
+    data = v.validate("extraData", dict, None)
+    client_id = v.validate("clientId", str)
+    #user_id = v.validate("userId", str)
     existing_data = FlyingShapes_extra_data.setdefault(client_id, {})
 
     existing_data.update(data)
@@ -153,44 +163,44 @@ async def set_extra_data(request: Request):
 
 @routes.post("/flyingshapes/provide-input")
 async def provide_input_value(request: Request):
-    json_data = await request.json()
-    data = json_data.get("data", None)
-    error = json_data.get("error", None)
-    fs_client_id = json_data.get("clientId", None)
-    #fs_client_id = json_data.get("fsClientId", None)
-    if data is None:
-        return web.json_response({"error": "missing data"}, status=400)
-    if fs_client_id is None:
-        return web.json_response({"error": "missing clientId"}, status=400)
+    v = await Validation.get(request)
+    data = v.validate("data", dict)
+    error: str | None = v.data.get("error", None)
+    request_id = v.validate(fs_request_id_field, (str, "request id"))
+    #fs_client_id = v.validate("clientId", str)
 
-    handlers = FlyingShapes_message_handlers.setdefault(fs_client_id, set())
-    was_handled = False
-    for handler in handlers.copy():
-        test, future = handler
-        if dataReceiver.test_message(test, data):
-            handlers.remove(handler)
-            try:
-                loop = future.get_loop()
-                if error is None:
-                    loop.call_soon_threadsafe(future.set_result, data)
-                else:
-                    loop.call_soon_threadsafe(future.set_exception, ValueError(error))
-            except asyncio.CancelledError as e:
-                pass
-            except RuntimeError as e:   #Event loop is closed
-                pass
-            was_handled = True
+    future = FlyingShapes_message_handlers.get(request_id, None)
+    has_handler = future is not None
+    response = {"message": "provided input data from FS to comfyUi", "consumed": has_handler}
 
-    response = {"message": "provided input data from FS to comfyUi", "consumed": was_handled}
+    if has_handler:
+        try:
+            loop = future.get_loop()
+            if error is None:
+                loop.call_soon_threadsafe(future.set_result, data)
+            else:
+                cancelled = "cancelled" in str(error).lower()
+                loop.call_soon_threadsafe(
+                    future.set_exception,
+                    HTTPJsonResponse(
+                        error,
+                        response=v.data,
+                        cancelled=cancelled
+                    ))
+            # noinspection PyAsyncCall
+            FlyingShapes_message_handlers.pop(request_id, None)
+        except asyncio.CancelledError as e:
+            pass
+        except RuntimeError as e:   #Event loop is closed
+            pass
+
     return web.json_response(response)
 
 
 @routes.post("/flyingshapes/fs-connection")
 async def fs_connection(request: Request):
-    json_data = await request.json()
-    user_id = json_data.get("userId", None)
-    if user_id is None:
-        return web.json_response({"error": "missing UserId"}, status=400)
+    v = await Validation.get(request)
+    user_id = v.validate("userId", str)
 
     sid = make_fs_id(user_id)
     sidWeb = make_fs_id(user_id, 'web')

@@ -32,11 +32,32 @@
     background-size: 200px;
 }
 
+.fs-settings-button {
+    border-style: none !important;
+    padding: 6px;
+}
+
 #fs-manager-dialog {
-    width: 480px;
+    width: 640px;
     /*height: 520px;*/
     box-sizing: content-box;
     z-index: 10000;
+}
+
+#fs-manager-dialog div.hd {
+    font-weight: bold;
+    font-size: 110%;
+}
+
+#fs-manager-dialog div.x {
+    color: var(--w75) !important;
+}
+#fs-manager-dialog div.x:not(.active):hover {
+    background-color: var(--w20);
+}
+#fs-manager-dialog div.x.active {
+    color: var(--b75) !important;
+    background-color: var(--w75);
 }
 
 .fs-title {
@@ -70,8 +91,8 @@
 }
 
 .fs-grid input[type=checkbox] {
-    width: 32px;
-    height: 32px;
+    width: 26px;
+    height: 26px;
 }
 
 .fs-validation-error {
@@ -95,6 +116,12 @@
     width: 100%;
 }
 
+.subgrid-cols {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+}
+
 .connection-bubble {
     display: inline-block;
     width: 12px;
@@ -104,7 +131,10 @@
 }
 
 :root {
-    --success-text: var(--success-color, #52c41a)
+    --success-text: var(--success-color, #52c41a);
+    --w75: rgba(255, 255, 255, .75);
+    --b75: rgba(0, 0, 0, 0.75);
+    --w20: rgba(255, 255, 255, .2);
 }
 
 .connected-display.valid:not(.connected) .connection-bubble.vr {
@@ -157,10 +187,6 @@ transform: scaleY(.65) translateY(-40px);
     gap: 8px;
     justify-content: center;
     align-items: center;
-}
-
-#fs-web-opened-wf .row {
-    grid-column: 1/-1;
 }
 
 #fs-web-opened-wf .close {

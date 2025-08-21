@@ -1,5 +1,5 @@
 import {api} from "../../scripts/api.js";
-import {state, validState} from "./settings.js";
+import {mutateState, state, validState} from "./settings.js";
 
 /**
  *
@@ -105,6 +105,40 @@ export async function requestEditWorkflow() {
         } else {
             app.ui.dialog.show("An unknown error occurred, when trying to open a workflow from FS Web.");
             console.error(e)
+        }
+    }
+}
+
+export async function requestFsWebUserId() {
+    const {userId} = state
+    const data = {userId}
+
+    try {
+        const result = await postRequest("request-fs-web-user-id", data, false, false)
+        //app.ui.dialog.show("Got a response from FS Web.");
+        const {fsDomain, fsUser} = result
+        if (!fsDomain) {
+            app.ui.dialog.show("Invalid response, fsDomain missing.");
+            return
+        }
+
+        mutateState('fsInstances', inst => {
+            let arr = inst[fsDomain]
+            if (!Array.isArray(arr)) {
+                arr = []
+                inst[fsDomain] = arr
+            }
+            const existing = arr.find(u => u.id === fsUser.id)
+            if (existing) {
+                Object.assign(existing, fsUser)
+            } else arr.push(fsUser)
+        })
+    } catch (e) {
+        console.error(e)
+        if (e.error) {
+            app.ui.dialog.show(`An error occurred: ${e.error}`);
+        } else {
+            app.ui.dialog.show("An unknown error occurred, when trying to get an Id from a connected FS User.");
         }
     }
 }

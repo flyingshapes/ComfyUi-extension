@@ -11,6 +11,7 @@ import comfy.utils
 import torch
 import time
 
+NaN = float("NaN")
 
 class FsInputNode:
     FUNCTION = "receive_value"
@@ -23,15 +24,12 @@ class FsInputNode:
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):
-        return float("NaN")  # time.time()
+        if cls.should_execute_non_interactive(**kwargs):
+            return kwargs.get("stored_value", NaN)
+        return NaN  # time.time()
 
     def process_value(self, value: str | None, **kwargs):
         return (value,)
-
-    def process_value_required(self, value: str | None, value_required: bool, **kwargs):
-        if value is None and value_required:
-            raise Exception(self.class_name() + ": Missing stored value")
-        return self.process_value(value, **kwargs)
 
     def fs_request_data(self, **kwargs):
         return {
@@ -39,8 +37,9 @@ class FsInputNode:
             "name": kwargs.get("name"),
         }
 
-    def fs_response_test(self, **kwargs) -> ReceiveFilterOrDict:
-        return self.fs_request_data(**kwargs)
+    def fs_response_test(self, response_data, **kwargs):
+        # can be implemented in nodes and throw an exception if the response data is incorrect
+        pass
 
     def fs_request_message_type(self, **kwargs):
         return "flyingshapes_request"
@@ -48,32 +47,48 @@ class FsInputNode:
     def value_required(self, **kwargs) -> bool:
         return True
 
-    def receive_value(self, **kwargs):
-        stored_value: str | None = kwargs.get("stored_value", None)
+    @staticmethod
+    def should_execute_non_interactive(**kwargs) -> bool:
         server: PromptServer = PromptServer.instance
         client_id: str = server.client_id
         is_fs = is_fs_id(client_id)
 
         fs_data = FlyingShapes_extra_data.get(client_id, None)
-        value_required = self.value_required(**kwargs)
 
         if is_fs:
-            return self.process_value_required(stored_value, value_required, **kwargs)
+            return True
 
-        err = "Prompt not sent from Flyingshapes and: "
         if fs_data is None:
             # raise Exception(err + "fs_data is None.")
-            print(err + "fs_data is None.")
-            return self.process_value_required(stored_value, value_required, **kwargs)
+            print("Prompt not sent from Flyingshapes and fs_data is None.")
+            return True
 
         use_fs_input: bool | None = fs_data.get("inputFromFs", None)
         if not use_fs_input:
-            return self.process_value_required(stored_value, value_required, **kwargs)
+            return True
+
+        return False
+
+
+    async def receive_value(self, **kwargs):
+        stored_value: str | None = kwargs.get("stored_value", None)
+        server: PromptServer = PromptServer.instance
+        client_id: str = server.client_id
+
+        fs_data = FlyingShapes_extra_data.get(client_id, None)
+        value_required = self.value_required(**kwargs)
+
+        if self.should_execute_non_interactive(**kwargs):
+            if stored_value is None and value_required:
+                raise Exception(self.class_name() + ": Missing stored value")
+
+            return self.process_value(stored_value, **kwargs)
 
         user_id: str | None = fs_data.get("userId", None)
         timeout = fs_data.get("timeout", None)
         if user_id is None or len(user_id) == 0:
-            raise Exception(err + "None or empty userId.")
+            v = "None" if user_id is None else "an empty string"
+            raise Exception(f"userId is {v}.")
         fs_sid = make_fs_id(user_id)
 
         sock: WebSocketResponse | None = server.sockets.get(client_id, None)
@@ -82,18 +97,18 @@ class FsInputNode:
 
         request_data = self.fs_request_data(**kwargs)
         request_message_type = self.fs_request_message_type(**kwargs)
-        response_test = self.fs_response_test(**kwargs)
 
-        server.send_sync(request_message_type, request_data, fs_sid)
-
-        print("sent " + request_message_type + " message, waiting for result")
+        print(f"sending request message of type '{request_message_type}' to flyingshapes - waiting for result")
         print(json.dumps(request_data))
         try:
-            result = node_receive_message(fs_sid, response_test, timeout)
+            # result = await node_receive_message_async(fs_sid, response_test, timeout)
+            result = await fs_request_value(request_message_type, fs_sid, request_data, timeout)
         except TimeoutError as e:
             print("TimeoutError: {0}".format(str(e)))
             msg = "{0} timed out waiting for result after {1}seconds.".format(self.class_name(), str(timeout))
             raise Exception(msg)
+
+        self.fs_response_test(result, **kwargs)
 
         if "value" not in result:
             if value_required:
@@ -153,10 +168,10 @@ class InputStyle(FsInputNode):
                 "order": ("INT", {"default": 1, "min": 0, }),
             },
             "optional": {
-                "stored_value": ("STRING", { "defaultInput": True, "default": empty_base64_image, }),
-                "style_name": ("STRING", { "defaultInput": True, "placeholder": "using style selected in client" }),
+                "stored_value": ("STRING", { "forceInput": True, "default": empty_base64_image, }),
+                "style_name": ("STRING", { "forceInput": True, "placeholder": "using style selected in client" }),
                 "fallback_style": ("IMAGE",),
-                "weight": ("FLOAT", { "defaultInput": True, "min": -1, "max": 3, "step": 0.05 }),
+                "weight": ("FLOAT", { "forceInput": True, "min": -1, "max": 3, "step": 0.05 }),
             }
         }
 
@@ -209,8 +224,11 @@ class InputStyle(FsInputNode):
             result["style"] = style_name
         return result
 
-    def fs_response_test(self, **kwargs) -> ReceiveFilterOrDict:
-        return lambda r: isinstance(r, dict) and isinstance(r.get("style", ""), str)
+    def fs_response_test(self, response, **kwargs):
+        if not isinstance(response, dict):
+            raise Exception("response is not a dict")
+        if not isinstance(response.get("style", ""), str):
+            raise Exception("response.style is not a string")
 
 
     def fs_request_message_type(self, **kwargs):
@@ -247,10 +265,12 @@ class InputScreenShot(FsInputNode):
             "width": width,
         }
 
-    def fs_response_test(self, type=None, **kwargs) -> ReceiveFilterOrDict:
-        return {
-            "type": type if type is not None else self.screenshot_types[0],
-        }
+    def fs_response_test(self, response, **kwargs):
+        if not isinstance(response, dict):
+            raise Exception("response is not a dict")
+        type = response.get("type", "")
+        if not (type in self.screenshot_types):
+            raise Exception(f"response.type is {type}, but should be one of {self.screenshot_types}")
 
     def fs_request_message_type(self, **kwargs):
         return "flyingshapes_request_screenshot"
@@ -265,7 +285,7 @@ class InputSettings(FsInputNode):
             },
         }
 
-    def receive_value(self, batch_size: int, **kwargs):
+    async def receive_value(self, batch_size: int, **kwargs):
         return (batch_size,)
 
     RETURN_TYPES = ("INT",)
@@ -288,12 +308,13 @@ class OutputImages:
     OUTPUT_NODE = True
 
     def save_images(self, images, **kwargs):
-        pbar = comfy.utils.ProgressBar(images.shape[0])
+        num_of_images = images.shape[0]
+        pbar = comfy.utils.ProgressBar(num_of_images)
         step = 0
         for image in images:
             i = 255. * image.cpu().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
-            pbar.update_absolute(step, images.shape[0], ("PNG", img, None))
+            pbar.update_absolute(step, num_of_images, ("PNG", img, None))
             step += 1
 
         return {}

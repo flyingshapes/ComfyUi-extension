@@ -9,8 +9,6 @@ FS_PREFIX = "FLYINGSHAPES_"
 def node_class_map_name(cls):
     return FS_PREFIX + to_snake_case(cls.__name__)
 
-FsVersionInfo.load_version()
-
 
 print("Loading Flyingshapes")
 

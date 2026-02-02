@@ -3,3 +3,5 @@
 /models/*.safetensors
 .directory
 version*.yml
+config.yml
+.netrc

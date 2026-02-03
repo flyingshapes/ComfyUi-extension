@@ -1,0 +1,8 @@
+pyyaml
+trimesh
+pillow
+pydantic
+aiohttp_session[secure]
+Jinja2
+bcrypt
+pycryptodome

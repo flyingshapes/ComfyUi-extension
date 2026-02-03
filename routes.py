@@ -4,7 +4,7 @@ from aiohttp.web import WebSocketResponse
 from aiohttp.web_request import Request
 from .dataReceiver import *
 from .validation import Validation
-from .config import config
+from .config import fs_config, reload_config
 
 routes: web.RouteTableDef = PromptServer.instance.routes
 
@@ -218,4 +218,10 @@ async def fs_connection(request: Request):
 
 @routes.get("/flyingshapes/version")
 async def fs_version(request: Request):
-    return web.json_response(text=config.model_dump_json(exclude_none=True))
+    return web.json_response(text=fs_config.model_dump_json(exclude_none=True, exclude={'users'}))
+
+
+@routes.get("/flyingshapes/reload-config")
+async def do_reload_config(request: Request):
+    reload_config()
+    return web.json_response({"message": "reloaded config"})

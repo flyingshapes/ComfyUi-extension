@@ -1,9 +1,9 @@
 from os import path
-from typing import Dict, Optional
+from typing import Dict, Optional, TypeVar
 import yaml
 from pydantic import BaseModel, ValidationError
 
-class FsComfyUiConfig(BaseModel):
+class FsComfyUiVersionConfig(BaseModel):
     sem_ver: str
     git_hash: Optional[str] = None
     git_clean: Optional[bool] = None
@@ -19,49 +19,87 @@ class FsWebConfig(BaseModel):
         "staging": "https://api-staging.flyingshapes.com"
     }
 
+class FsComfyUser(BaseModel):
+    user_name: str
+    password: str
+
+class FsComfyUserConfig(BaseModel):
+    enabled: bool = False
+    users: list[FsComfyUser] = []
+    tokens: list[str] = []
+
 class FsComfyConfig(BaseModel):
-    fs_comfy_ui: FsComfyUiConfig
+    fs_comfy_ui: FsComfyUiVersionConfig
     fs_web: FsWebConfig = FsWebConfig()
+    auth: FsComfyUserConfig = FsComfyUserConfig()
 
 
-def_version_file = path.join(path.dirname(__file__), 'version.yml')
-def load_version(version_file: str = def_version_file):
-    #return configur8.load(FsComfyConfig, version_file)
-    with open(version_file, 'r') as stream:
-        data = yaml.safe_load(stream)
-    return FsComfyConfig.model_validate(data)
+fs_ext_dir = path.dirname(__file__)
 
-
-
-config = None
 
 green = "\033[32m"
+blue = "\033[34m"
 red = "\033[31m"
 reset = "\033[0m"
 bold = "\033[1m"
+line_length = 100
 
-try:
-    config = load_version()
-    print(f"{bold}{green}✔ Successfully loaded Fs-comfy config. ✔{reset}")
-except ValidationError as e:
-    line_length = 100
-    def expand_line(s: str, c = ""):
-        s1 = f"⚠  {c}{s}  "
-        # noinspection PyTypeChecker
-        spaces = " " * (line_length - 6 - len(s))
-        return f"{s1}{spaces}⚠{reset}"
 
-    e_str = ""
-    for el in str(e).split("\n"):
-        el1 = expand_line(el, red)
-        e_str += f"\n    {el1}"
+T = TypeVar("T", bound=BaseModel)
+# noinspection PyPep8Naming
+def load_config_file(conf_name: str, TypeCls: type[T], required: bool = False) -> T:
+    conf_file = path.join(fs_ext_dir, f'{conf_name}.yml')
+    if path.exists(conf_file):
+        #conf_file
+        with open(conf_file, 'r') as stream:
+            data = yaml.safe_load(stream)
 
-    # noinspection PyTypeChecker
-    warn_line = '⚠' * line_length
-    first_line = expand_line(" Failed to load Fs-comfy config")
-    banner = f"""
-    {red}{warn_line}{reset}
-    {first_line}{e_str}
-    {red}{warn_line}{reset}
-    """
-    print(banner)
+        try:
+            result = TypeCls.model_validate(data, strict=True)
+            print(f"{blue}[FS-Comfy]{reset} {bold}{green}✔ Successfully loaded Fs {conf_name} config. ✔{reset}")
+            return result
+        except ValidationError as e:
+            def expand_line(s: str, c = ""):
+                s1 = f"{red}⚠{reset}  {c}{s}  "
+                # noinspection PyTypeChecker
+                spaces = " " * (line_length - 6 - len(s))
+                return f"{s1}{spaces}⚠{reset}"
+
+            e_str = ""
+            for el in str(e).split("\n"):
+                el1 = expand_line(el, red)
+                e_str += f"\n            {el1}"
+
+            # noinspection PyTypeChecker
+            warn_line = '⚠' * line_length
+            first_line = expand_line(f" Failed to load Fs {conf_name} config")
+            banner = f"""
+            {red}{warn_line}{reset}
+            {first_line}{e_str}
+            {red}{warn_line}{reset}
+            """
+            print(banner)
+            raise e
+    elif required:
+        raise FileNotFoundError(f"Config file '{conf_file}' not found.")
+    else:
+        return TypeCls()
+
+
+fs_config = None
+
+def reload_config():
+    global fs_config
+    v_config = load_config_file('version', FsComfyUiVersionConfig, True)
+    u_config = load_config_file('users', FsComfyUserConfig)
+
+    if fs_config is None:
+        fs_config = FsComfyConfig(
+            fs_comfy_ui=v_config,
+        )
+
+    fs_config.fs_comfy_ui = v_config
+    fs_config.auth = u_config
+
+reload_config()
+#print(f"{bold}{green}✔ Successfully loaded Fs-comfy config. ✔{reset}")

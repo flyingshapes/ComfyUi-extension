@@ -2,6 +2,8 @@ from .nodes import *
 from .common import *
 # noinspection PyUnresolvedReferences
 from . import routes
+# noinspection PyUnresolvedReferences
+from . import login
 
 FS_PREFIX = "FLYINGSHAPES_"
 

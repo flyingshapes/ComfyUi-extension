@@ -218,7 +218,7 @@ async def fs_connection(request: Request):
 
 @routes.get("/flyingshapes/version")
 async def fs_version(request: Request):
-    return web.json_response(text=fs_config.model_dump_json(exclude_none=True, exclude={'users'}))
+    return web.json_response(text=fs_config.model_dump_json(exclude_none=True))
 
 
 @routes.get("/flyingshapes/reload-config")

@@ -1,7 +1,7 @@
 from os import path
 from typing import Dict, Optional, TypeVar
 import yaml
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, Field
 
 class FsComfyUiVersionConfig(BaseModel):
     sem_ver: str
@@ -31,7 +31,7 @@ class FsComfyUserConfig(BaseModel):
 class FsComfyConfig(BaseModel):
     fs_comfy_ui: FsComfyUiVersionConfig
     fs_web: FsWebConfig = FsWebConfig()
-    auth: FsComfyUserConfig = FsComfyUserConfig()
+    auth: FsComfyUserConfig = Field(default_factory=FsComfyUserConfig, exclude=True)
 
 
 fs_ext_dir = path.dirname(__file__)
@@ -86,7 +86,7 @@ def load_config_file(conf_name: str, TypeCls: type[T], required: bool = False) -
         return TypeCls()
 
 
-fs_config = None
+fs_config: FsComfyConfig | None = None
 
 def reload_config():
     global fs_config

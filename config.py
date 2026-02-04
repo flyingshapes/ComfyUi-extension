@@ -51,13 +51,37 @@ blue = "\033[34m"
 red = "\033[31m"
 reset = "\033[0m"
 bold = "\033[1m"
-line_length = 100
+
+
+def print_banner(*msgs, symbol: str='⚠', color: str=red, line_length = 120):
+    def expand_line(s: str, c = ""):
+        s1 = f"{red}{symbol}{reset}  {c}{s}  "
+        # noinspection PyTypeChecker
+        spaces = " " * (line_length - 6 - len(s))
+        return f"{s1}{spaces}{symbol}{reset}"
+
+    content_str = ""
+    line_prefix = "\n        "
+    for i, msg in enumerate(msgs):
+        for el in str(msg).split("\n"):
+            el1 = expand_line(el, red)
+            content_str += f"{line_prefix if i > 0 else ''}{el1}"
+
+    # noinspection PyTypeChecker
+    warn_line = symbol * line_length
+    banner = f"""
+        {color}{warn_line}{reset}
+        {content_str}
+        {color}{warn_line}{reset}
+    """
+    print(banner)
 
 
 T = TypeVar("T", bound=BaseModel)
 # noinspection PyPep8Naming
 def load_config_file(conf_name: str, TypeCls: type[T], required: bool = False) -> T:
     conf_file = path.join(fs_ext_dir, f'{conf_name}.yml')
+    conf_path_out = '/'.join(conf_file.split(path.sep)[-3:])
     if path.exists(conf_file):
         #conf_file
         with open(conf_file, 'r') as stream:
@@ -68,29 +92,11 @@ def load_config_file(conf_name: str, TypeCls: type[T], required: bool = False) -
             print(f"{blue}[FS-Comfy]{reset} {bold}{green}✔ Successfully loaded Fs {conf_name} config. ✔{reset}")
             return result
         except ValidationError as e:
-            def expand_line(s: str, c = ""):
-                s1 = f"{red}⚠{reset}  {c}{s}  "
-                # noinspection PyTypeChecker
-                spaces = " " * (line_length - 6 - len(s))
-                return f"{s1}{spaces}⚠{reset}"
-
-            e_str = ""
-            for el in str(e).split("\n"):
-                el1 = expand_line(el, red)
-                e_str += f"\n            {el1}"
-
-            # noinspection PyTypeChecker
-            warn_line = '⚠' * line_length
-            first_line = expand_line(f" Failed to load Fs {conf_name} config")
-            banner = f"""
-            {red}{warn_line}{reset}
-            {first_line}{e_str}
-            {red}{warn_line}{reset}
-            """
-            print(banner)
+            print_banner(f" FS Config file '{conf_path_out}.yml' validation error", e)
             raise e
     elif required:
-        raise FileNotFoundError(f"Config file '{conf_file}' not found.")
+        print_banner(f"FS Config file '{conf_path_out}' not found.", "\nHave you started comfy with 'scripts/run.sh' ?")
+        raise FileNotFoundError(f"FS Config file '{conf_path_out}' not found.")
     else:
         return TypeCls()
 

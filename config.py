@@ -1,9 +1,18 @@
 from os import path
 from typing import Dict, Optional, TypeVar
 import yaml
-from pydantic import BaseModel, ValidationError, Field
+from pydantic import BaseModel, ConfigDict, ValidationError, Field
+from pydantic.alias_generators import to_camel
 
-class FsComfyUiVersionConfig(BaseModel):
+class AppModel(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        serialize_by_alias=True,
+        validate_by_alias=True,
+        validate_by_name=True,
+    )
+
+class FsComfyUiVersionConfig(AppModel):
     sem_ver: str
     git_hash: Optional[str] = None
     git_clean: Optional[bool] = None
@@ -13,22 +22,22 @@ class FsComfyUiVersionConfig(BaseModel):
     #env.str("FS_COMFY_UI_SERVER", None)) # configur8 None
     #dev: bool = False
 
-class FsWebConfig(BaseModel):
+class FsWebConfig(AppModel):
     fs_web_servers: Dict[str, str] = {
         "prod": "https://api.flyingshapes.com",
         "staging": "https://api-staging.flyingshapes.com"
     }
 
-class FsComfyUser(BaseModel):
+class FsComfyUser(AppModel):
     user_name: str
     password: str
 
-class FsComfyUserConfig(BaseModel):
+class FsComfyUserConfig(AppModel):
     enabled: bool = False
     users: list[FsComfyUser] = []
     tokens: list[str] = []
 
-class FsComfyConfig(BaseModel):
+class FsComfyConfig(AppModel):
     fs_comfy_ui: FsComfyUiVersionConfig
     fs_web: FsWebConfig = FsWebConfig()
     auth: FsComfyUserConfig = Field(default_factory=FsComfyUserConfig, exclude=True)

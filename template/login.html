@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ComfyUI Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" type="text/css" href="./login.css" />
+    <style>
+        body {text-align: center;}
+        .comfy-modal { display: block; }
+        .comfy-modal-content { width: 100%; height: 100%; }
+        .comfy-modal p { color: white; text-align: left; }
+        .comfy-modal .minor { font-style: italic; font-size: 13px; color: #777; }
+        .comfy-modal label { color: white; padding: 5px; }
+        .comfy-modal .title {background-color: black; font-size: 22px; color: white; padding: 5px;}
+        .guest-mode {background-color: #224422 !important;}
+        .feedback { margin: 20px 10px; padding: 10px; border: 1px solid #666; background-color: #222; border-radius: 10px;}
+    </style>
+</head>
+<body>
+
+<div class="comfy-modal">
+    <div class="comfy-modal-content">
+        <div class="title">ComfyUI Login</div>
+    </div>
+
+    {% if disabled %}
+    <div class="feedback">
+        <p>⚠️ Login is disabled.</p>
+    </div>
+    {% else %}
+    <div class="feedback">
+        {% if wrong_password %}
+        <p>Wrong Password.</p>
+        {% else %}
+        <p>⚡ Welcome!</p>
+        {% endif %}
+    </div>
+    <div>
+        <form action="/login" method="post" id="form_login">
+            <label for="username">👤 Username:</label>
+            <input type="text" id="username" name="username" placeholder="Enter username" required>
+            <br><br>
+            <label for="password">🗝️ Password:</label>
+            <input type="password" id="password" name="password" placeholder="Enter password" required>
+            <br><br>
+            <input type="submit" value="Login" class="comfy-btn">
+            <br><br>
+        </form>
+    </div>
+    {% endif %}
+</div>
+<script>
+    window.onload = function() {
+        var usernameInput = document.getElementById('username');
+        if (usernameInput) {
+            usernameInput.focus();
+        } else {
+            document.getElementById('password').focus();
+        }
+    };
+</script>
+
+
+</body>
+
+</html>

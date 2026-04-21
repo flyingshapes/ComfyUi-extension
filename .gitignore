@@ -3,3 +3,7 @@
 /models/*.safetensors
 .directory
 version*.yml
+config.yml
+users.yml
+.secret-key.txt
+.netrc
